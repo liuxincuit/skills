@@ -313,7 +313,7 @@ async function analyzeBuild(buildUrl, options = {}) {
 /**
  * 构建降级日志片段
  */
-function buildFallbackLogSnippet(build, details, failedTests, changes) {
+function buildFallbackLogSnippet(build, details, failedTests, changes, buildSteps, buildParameters) {
     let snippet = `【构建信息】\n`;
     snippet += `- 构建编号: #${build.number}\n`;
     snippet += `- 状态: ${build.status}\n`;
@@ -323,10 +323,11 @@ function buildFallbackLogSnippet(build, details, failedTests, changes) {
         snippet += `【状态详情】\n${details.statusText}\n\n`;
     }
 
+    // 展开问题详情（包含 details 字段）
     if (failedTests && failedTests.problems && failedTests.problems.length > 0) {
         snippet += `【问题列表】\n`;
         failedTests.problems.forEach((p, i) => {
-            snippet += `${i + 1}. ${p.type || 'Unknown'}: ${p.identity || 'N/A'}\n`;
+            snippet += `${i + 1}. [${p.type || 'Unknown'}] ${p.details || p.identity || 'N/A'}\n`;
         });
         snippet += `\n`;
     }
@@ -337,6 +338,39 @@ function buildFallbackLogSnippet(build, details, failedTests, changes) {
             snippet += `${i + 1}. ${t.name || 'Unknown Test'}\n`;
         });
         snippet += `\n`;
+    }
+
+    // 构建步骤定义
+    if (buildSteps && buildSteps.step && buildSteps.step.length > 0) {
+        snippet += `【构建步骤】\n`;
+        buildSteps.step.forEach((s, i) => {
+            const props = {};
+            if (s.properties && s.properties.property) {
+                s.properties.property.forEach(p => {
+                    props[p.name] = p.value;
+                });
+            }
+            snippet += `${i + 1}. [${s.id}] ${s.name} (type: ${s.type})\n`;
+            // 显示关键配置：goals、pomLocation、runnerArgs
+            if (props.goals) snippet += `   goals: ${props.goals}\n`;
+            if (props.pomLocation) snippet += `   pomLocation: ${props.pomLocation}\n`;
+            if (props.runnerArgs) snippet += `   runnerArgs: ${props.runnerArgs}\n`;
+        });
+        snippet += `\n`;
+    }
+
+    // 构建参数（只显示与失败相关的关键参数）
+    if (buildParameters && buildParameters.relevant) {
+        const relevantParams = Object.keys(buildParameters.relevant);
+        if (relevantParams.length > 0) {
+            snippet += `【关键构建参数】\n`;
+            relevantParams.forEach(k => {
+                // 截断过长的值
+                const val = buildParameters.relevant[k];
+                snippet += `- ${k}: ${val.length > 300 ? val.substring(0, 300) + '...' : val}\n`;
+            });
+            snippet += `\n`;
+        }
     }
 
     if (changes && changes.length > 0) {
@@ -417,17 +451,26 @@ async function getRawBuildData(buildUrl, token) {
     // 获取变更
     const changes = await client.getChanges(build.id);
 
+    // 获取构建步骤定义
+    const buildSteps = await client.getBuildSteps(buildTypeId);
+
+    // 获取构建参数
+    const buildParameters = await client.getBuildParameters(build.id);
+
     return {
         build: {
             id: build.id,
             number: build.number,
             status: build.status,
             statusText: build.statusText,
+            buildTypeId: build.buildTypeId,
             webUrl: build.webUrl,
             finishOnAgentDate: build.finishOnAgentDate
         },
         logContent,
         failedTests,
+        buildSteps,
+        buildParameters,
         changes
     };
 }

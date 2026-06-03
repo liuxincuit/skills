@@ -396,8 +396,8 @@ class TeamCityClient {
             const failedOutput = await this._executeRequest(failedUrl);
             const failedData = JSON.parse(failedOutput);
 
-            // 获取问题详情
-            const problemUrl = this._getUrl(`/app/rest/problemOccurrences?locator=build:(id:${buildId})`);
+            // 获取问题详情（包含 details 字段）
+            const problemUrl = this._getUrl(`/app/rest/problemOccurrences?locator=build:(id:${buildId})&fields=problemOccurrence(id,type,identity,details,problem,build)`);
             let problems = [];
             try {
                 const problemOutput = await this._executeRequest(problemUrl);
@@ -455,6 +455,91 @@ class TeamCityClient {
             return JSON.parse(output);
         } catch (error) {
             throw new Error(`获取构建详情失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 获取构建类型的步骤定义
+     * @param {string} buildTypeId - 构建类型 ID
+     * @returns {Promise<Object>} 步骤定义
+     */
+    async getBuildSteps(buildTypeId) {
+        try {
+            const url = this._getUrl(`/app/rest/buildTypes/id:${buildTypeId}/steps`);
+            const output = await this._executeRequest(url);
+            return JSON.parse(output);
+        } catch (error) {
+            // 返回空结构
+            return { count: 0, step: [] };
+        }
+    }
+
+    /**
+     * 获取构建参数（结果属性）
+     * 只保留与构建分析相关的关键参数，避免返回大量环境噪音
+     * @param {string} buildId - 构建 ID
+     * @returns {Promise<Object>} 构建参数
+     */
+    async getBuildParameters(buildId) {
+        try {
+            const url = this._getUrl(`/app/rest/builds/id:${buildId}/resulting-properties`);
+            const output = await this._executeRequest(url);
+            const data = JSON.parse(output);
+            // 将 property 数组转换为对象，并过滤出关键参数
+            const allProps = {};
+            const relevantProps = {};
+            if (data.property && Array.isArray(data.property)) {
+                for (const p of data.property) {
+                    if (p.name && p.value !== undefined) {
+                        allProps[p.name] = p.value;
+                    }
+                }
+            }
+
+            // 只保留与构建分析相关的参数
+            const relevantKeys = [
+                // Sonar 相关
+                'SONAR_GATE_GOAL', 'SONAR_GOAL_COMMON', 'VERIFY_SONAR_STATUS',
+                'system.SONAR9001_ADDRESS', 'system.SONAR9000_ADDRESS', 'system.SONAR9600_ADDRESS',
+                // 模块开关
+                'ibase-modules', 'iserver-modules', 'iportal-modules', 'iexpress-modules',
+                'providers-ugc', 'providers-mapping-localtiles', 'providers-mapping-remotetiles',
+                'providers-realspace-tiles', 'services-ogc', 'services-rest',
+                'services-rest-management', 'services-security', 'tilesource-impl',
+                'ispeco-parent',
+                // 测试控制
+                'SKIP_TESTS',
+                // 步骤状态
+                'teamcity.build.step.status.RUNNER_1068',
+                'teamcity.build.step.status.RUNNER_1069',
+                'teamcity.build.step.status.RUNNER_1079',
+                'teamcity.build.step.status.RUNNER_1322',
+                'teamcity.build.step.status.RUNNER_1408',
+                'teamcity.build.step.status.RUNNER_1587',
+                'teamcity.build.step.status.RUNNER_1802',
+                // PR 信息
+                'teamcity.pullRequest.number', 'teamcity.pullRequest.source.branch',
+                'teamcity.pullRequest.target.branch', 'teamcity.pullRequest.title',
+                // 构建 ID
+                'teamcity.build.id'
+            ];
+
+            for (const key of relevantKeys) {
+                if (allProps[key]) {
+                    relevantProps[key] = allProps[key];
+                }
+            }
+
+            // 扫描所有属性，收集 teamcity.build.step.status.* 的值
+            for (const key of Object.keys(allProps)) {
+                if (key.startsWith('teamcity.build.step.status.') && !relevantProps[key]) {
+                    relevantProps[key] = allProps[key];
+                }
+            }
+
+            return { relevant: relevantProps };
+        } catch (error) {
+            return { relevant: {} };
         }
     }
 }
