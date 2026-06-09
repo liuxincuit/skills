@@ -37,6 +37,11 @@
       "skillPath": "skills/skill-creator/SKILL.md",
       "computedHash": "7e3c9cd74e9e2b4828527a857170e86310f2dab5ea8030a9043df2c7e6c88857"
     },
+    "ssh-connect": {
+      "source": "D:\\code\\skills",
+      "sourceType": "local",
+      "computedHash": "48566796a6aa262fbbaa3c50e23e6aef6185a8284a33a0dad3051ef3d9ea6368"
+    },
     "xlsx": {
       "source": "anthropics/skills",
       "sourceType": "github",
