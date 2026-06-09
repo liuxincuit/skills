@@ -1,0 +1,10 @@
+{
+    "name": "my-extensions",
+    "version": "1.0.0",
+    "private": true,
+    "keywords": ["extensions"],
+    "pi": {
+        "extensions": ["./pi/extensions"],
+        "skills": ["./skills", "./.agents/skills"]
+    }
+}
