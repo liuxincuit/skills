@@ -8,7 +8,7 @@ AI Agent 插件与 Skills 集合，用于个人开发工作流。
 
 ```bash
 # 克隆仓库
-git clone git@github.com:canxing/skills.git ~/code/skills
+git clone git@github.com:liuxincuit/skills.git ~/code/skills
 cd ~/code/skills
 
 # 安装社区技能（按 skills-lock.json 恢复）

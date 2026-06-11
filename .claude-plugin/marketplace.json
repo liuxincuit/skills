@@ -1,0 +1,24 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace-schema.json",
+  "name": "liuxincuit-skills",
+  "description": "Personal AI Agent skills collection for development workflow",
+  "owner": {
+    "name": "liuxincuit"
+  },
+  "plugins": [
+    {
+      "name": "wingman",
+      "source": ".",
+      "description": "AI Agent skills for development workflow, including personal and community skills",
+      "version": "1.0.0",
+      "author": {
+        "name": "liuxincuit"
+      },
+      "homepage": "https://github.com/liuxincuit/skills",
+      "repository": "https://github.com/liuxincuit/skills",
+      "license": "MIT",
+      "category": "developer-tools",
+      "tags": ["skills", "supermap", "claude-code", "pi-agent"]
+    }
+  ]
+}
