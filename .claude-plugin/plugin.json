@@ -1,5 +1,6 @@
 {
   "name": "wingman",
-  "description": "Personal AI assistant skills for coding, debugging, and productivity",
-  "version": "1.0.0"
+  "description": "AI Agent skills for development workflow, including personal and community skills",
+  "version": "1.0.0",
+  "skills": ["./skills", "./.agents/skills"]
 }
