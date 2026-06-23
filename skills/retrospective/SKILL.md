@@ -48,6 +48,11 @@ Review the conversation context after completing a task and identify what should
 - 项目特有的约定（应归入类别 B）
 - 与对话任务无关的猜测
 
+**已有规则违反处理：**
+- 如果本次对话中违反了已有规则，在该规则后追加 `（违反 N 次：YYYY-MM-DD，违反场景简述）`
+- 如果已有记录，递增 N，追加新日期和场景
+- 示例：`- 默认只分析和回答问题（违反 2 次：2025-06-22，场景A；2025-07-01，场景B）`
+
 **更新格式：**
 ```markdown
 ## 用户偏好（由 retrospective 管理）
