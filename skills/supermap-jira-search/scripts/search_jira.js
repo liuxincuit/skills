@@ -2,14 +2,14 @@
 /**
  * Supermap Jira Search Script (Node.js Version)
  *
- * Searches the Supermap Jira system and returns results as a markdown table.
+ * Searches the Supermap Jira system using JQL API and returns results as a markdown table.
  * Uses the SUPERMAP_JIRA_TOKEN environment variable for authentication.
  */
 
 const https = require('https');
 
 const JIRA_BASE_URL = 'jira.supermap.work';
-const API_ENDPOINT = '/rest/quicksearch/1.0/productsearch/search';
+const API_ENDPOINT = '/rest/api/2/search';
 
 function getToken() {
     const token = process.env.SUPERMAP_JIRA_TOKEN;
@@ -36,7 +36,7 @@ function makeRequest(url, token) {
                 'User-Agent': 'Supermap-Jira-Search/1.0'
             },
             timeout: 30000,
-            rejectUnauthorized: false // Allow self-signed certificates
+            rejectUnauthorized: false
         };
 
         const req = https.request(options, (res) => {
@@ -77,9 +77,18 @@ function makeRequest(url, token) {
     });
 }
 
-async function searchJira(query, token) {
-    const encodedQuery = encodeURIComponent(query);
-    const url = `${API_ENDPOINT}?q=${encodedQuery}`;
+function buildJql(query, useRawJql) {
+    if (useRawJql) {
+        return query;
+    }
+    // Free-text search: escape double quotes in the query
+    const escaped = query.replace(/"/g, '\\"');
+    return `(summary ~ "${escaped}" OR description ~ "${escaped}") ORDER BY created DESC`;
+}
+
+async function searchJira(jql, token) {
+    const encodedJql = encodeURIComponent(jql);
+    const url = `${API_ENDPOINT}?jql=${encodedJql}&maxResults=30&fields=summary,status,priority,fixVersions,created`;
 
     try {
         const response = await makeRequest(url, token);
@@ -90,59 +99,54 @@ async function searchJira(query, token) {
     }
 }
 
-function extractIssues(response) {
-    if (!Array.isArray(response)) {
-        return [];
+function formatAsMarkdownTable(response) {
+    const issues = response.issues || [];
+
+    if (!issues || issues.length === 0) {
+        return `No issues found. (total: ${response.total || 0})`;
     }
 
-    for (const section of response) {
-        if (section && section.id === 'quick-search-issues') {
-            return section.items || [];
-        }
+    const lines = ['| Key | 状态 | 优先级 | 版本 | 标题 |', '| --- | --- | --- | --- | --- |'];
+
+    for (const issue of issues) {
+        const key = issue.key || 'N/A';
+        const fields = issue.fields || {};
+        const summary = fields.summary || 'N/A';
+        const status = fields.status ? fields.status.name : 'N/A';
+        const priority = fields.priority ? fields.priority.name : 'N/A';
+        const versions = (fields.fixVersions || []).map(v => v.name).join(', ') || '-';
+
+        lines.push(`| ${key} | ${status} | ${priority} | ${versions} | ${summary} |`);
     }
 
-    return [];
-}
-
-function formatAsMarkdownTable(items) {
-    if (!items || items.length === 0) {
-        return 'No issues found.';
-    }
-
-    const lines = ['| 标题 | 链接 |', '| --- | --- |'];
-
-    for (const item of items) {
-        const title = item.title || 'N/A';
-        const url = item.url || '';
-
-        if (url) {
-            lines.push(`| ${title} | ${url} |`);
-        } else {
-            lines.push(`| ${title} | N/A |`);
-        }
+    if (response.total > issues.length) {
+        lines.push('');
+        lines.push(`> 共 ${response.total} 条结果，显示前 ${issues.length} 条。`);
     }
 
     return lines.join('\n');
 }
 
 function printHelp() {
-    console.log(`Supermap Jira Search (Node.js Version)
+    console.log(`Supermap Jira Search (Node.js Version) - JQL API
 
-Usage: node search_jira.js <search-query>
+Usage: node search_jira.js [--jql] <search-query>
 
 Description:
-    Search the Supermap Jira system and return matching issues as a markdown table.
+    Search the Supermap Jira system using JQL and return matching issues.
+
+    By default, the search query is treated as free-text, searching issue
+    summary and description fields. Use --jql flag to pass raw JQL.
 
 Environment Variables:
     SUPERMAP_JIRA_TOKEN  - Required. Your Jira API token for authentication.
 
 Examples:
-    node search_jira.js iServer
-    node search_jira.js "bug fix"
-    node search_jira.js --help
+    node search_jira.js "范围查询"
+    node search_jira.js --jql "(summary ~ \"范围查询\" OR summary ~ \"BOUNDS\") AND project = ISVJ ORDER BY created DESC"
 
 Output:
-    Results are displayed as a markdown table with issue titles and links.
+    Results are displayed as a markdown table with key, status, priority, versions, and title.
 `);
 }
 
@@ -154,13 +158,22 @@ async function main() {
         process.exit(0);
     }
 
+    const useRawJql = args[0] === '--jql';
+    if (useRawJql) {
+        args.shift();
+    }
+
+    if (args.length === 0) {
+        console.error('Error: No search query provided.');
+        printHelp();
+        process.exit(1);
+    }
+
     const query = args.join(' ');
     const token = getToken();
-
-    const response = await searchJira(query, token);
-    const issues = extractIssues(response);
-
-    const output = formatAsMarkdownTable(issues);
+    const jql = buildJql(query, useRawJql);
+    const response = await searchJira(jql, token);
+    const output = formatAsMarkdownTable(response);
     console.log(output);
 }
 
