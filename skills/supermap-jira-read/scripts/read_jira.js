@@ -234,6 +234,20 @@ function formatOutput(issue) {
         console.log(`  ${fields.labels.join(', ')}`);
     }
 
+    // 评论
+    if (fields.comment && fields.comment.comments && fields.comment.comments.length > 0) {
+        console.log('\n💬 评论');
+        console.log('-'.repeat(40));
+        console.log(`评论总数: ${fields.comment.comments.length}`);
+        fields.comment.comments.forEach((comment, index) => {
+            console.log(`\n--- 评论 ${index + 1} ---`);
+            console.log(`作者: ${comment.author?.displayName || 'N/A'} (${comment.author?.name || 'N/A'})`);
+            console.log(`时间: ${formatDate(comment.created)}`);
+            console.log('内容:');
+            console.log(comment.body || '(空)');
+        });
+    }
+
     console.log('\n' + '='.repeat(80));
 }
 
