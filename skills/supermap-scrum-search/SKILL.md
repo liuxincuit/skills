@@ -50,6 +50,7 @@ node scripts/search_activity.js --since 2026-03-01 --user liuxin1
 | `--until` | 结束日期 (yyyy-MM-dd) | 今天 |
 | `--status` | 状态过滤，多个用逗号分隔 | `处理中,已完成,已验收` |
 | `--user` | 用户名 | `liuxin1` |
+| `--json` | 以 JSON 格式输出结构化数据（供其他工具调用） | 无 |
 
 ## 输出说明
 

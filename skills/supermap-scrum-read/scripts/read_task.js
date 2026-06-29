@@ -15,6 +15,7 @@ if (!token) {
   process.exit(1);
 }
 
+const jsonMode = process.argv.includes('--json');
 const issueKey = process.argv[2];
 if (!issueKey || !/^[A-Z]+-\d+$/.test(issueKey)) {
   console.error('❌ 请提供 ISVS issue key，例如: node isvs_detail.js ISVS-1165');
@@ -53,20 +54,96 @@ function fmt(s) {
 }
 
 async function main() {
-  console.log('='.repeat(72));
-  console.log(`🔍 ISVS 任务详情: ${issueKey}`);
-  console.log('='.repeat(72));
+  // ========== 数据收集 ==========
 
   // 1. 获取 issue 基本信息
   const r1 = await call(`/rest/api/2/issue/${issueKey}?fields=summary,priority,resolution,description,status,assignee,reporter,created,updated,resolutiondate,customfield_10624`);
-
   if (r1.status !== 200) {
     console.error(`\n❌ 查询失败: HTTP ${r1.status}`);
     console.error(JSON.stringify(r1.body).substring(0, 200));
     process.exit(1);
   }
-
   const f = r1.body.fields || {};
+
+  // Sprint 信息
+  const sprintField = f.customfield_10624;
+  let sprintInfo = '';
+  if (sprintField && sprintField.length > 0) {
+    sprintInfo = sprintField.map(s => {
+      const nameM = s.match(/name=([^,]+)/);
+      const stateM = s.match(/state=([^,]+)/);
+      const name = nameM ? nameM[1] : '';
+      const state = stateM ? (stateM[1] === 'ACTIVE' ? '活跃' : stateM[1] === 'CLOSED' ? '已关闭' : stateM[1]) : '';
+      return `${name} (${state})`;
+    }).join(', ');
+  }
+
+  // 2. 获取 remote issue link (关联的 Jira 缺陷)
+  let linkedIsvjUrl = '';
+  const r2 = await call(`/rest/api/2/issue/${issueKey}/remotelink`);
+  let hasLink = false;
+  if (r2.status === 200 && Array.isArray(r2.body) && r2.body.length > 0) {
+    for (const link of r2.body) {
+      const url = link.object?.url || '';
+      if (url) {
+        linkedIsvjUrl = url;
+        hasLink = true;
+        break;
+      }
+    }
+  }
+  if (!hasLink) {
+    const match = (f.summary || '').match(/(ISVJ-\d+)/);
+    if (match) {
+      linkedIsvjUrl = `https://jira.supermap.work/browse/${match[1]}`;
+    }
+  }
+
+  // 提取 ISVJ key
+  const isvjMatch = linkedIsvjUrl.match(/\/browse\/(ISVJ-\d+)/);
+  const linkedIsvj = isvjMatch ? isvjMatch[1] : '';
+
+  // 3. 获取注释
+  const r3 = await call(`/rest/api/2/issue/${issueKey}/comment?orderBy=created`);
+  const comments = [];
+  if (r3.status === 200 && Array.isArray(r3.body.comments)) {
+    for (const c of r3.body.comments) {
+      comments.push({
+        author: c.author?.displayName || 'N/A',
+        authorName: c.author?.name || '',
+        created: c.created || '',
+        body: c.body || ''
+      });
+    }
+  }
+
+  // ========== JSON 模式 ==========
+  if (jsonMode) {
+    const result = {
+      key: issueKey,
+      summary: f.summary || '',
+      status: f.status?.name || '',
+      priority: f.priority?.name || '',
+      resolution: f.resolution?.name || '',
+      description: f.description || '',
+      assignee: f.assignee?.displayName || '',
+      reporter: f.reporter?.displayName || '',
+      created: f.created || '',
+      updated: f.updated || '',
+      resolutiondate: f.resolutiondate || '',
+      sprint: sprintInfo,
+      linkedIsvj,
+      linkedIsvjUrl,
+      comments
+    };
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  // ========== 格式化输出 ==========
+  console.log('='.repeat(72));
+  console.log(`🔍 ISVS 任务详情: ${issueKey}`);
+  console.log('='.repeat(72));
 
   // 基本信息
   console.log(`\n📋 基本信息`);
@@ -82,46 +159,18 @@ async function main() {
   if (f.resolutiondate) console.log(`  解决时间: ${fmt(f.resolutiondate)}`);
 
   // Sprint 信息
-  const sprintField = f.customfield_10624;
-  if (sprintField && sprintField.length > 0) {
-    const sprintInfo = sprintField.map(s => {
-      const nameM = s.match(/name=([^,]+)/);
-      const stateM = s.match(/state=([^,]+)/);
-      const name = nameM ? nameM[1] : '';
-      const state = stateM ? (stateM[1] === 'ACTIVE' ? '活跃' : stateM[1] === 'CLOSED' ? '已关闭' : stateM[1]) : '';
-      return `${name} (${state})`;
-    }).join(', ');
-    if (sprintInfo) console.log(`  Sprint:   ${sprintInfo}`);
-  }
+  if (sprintInfo) console.log(`  Sprint:   ${sprintInfo}`);
 
-  // 2. 获取 remote issue link (关联的 Jira 缺陷)
+  // 关联的 Jira 缺陷
   console.log(`\n🔗 关联的 Jira 缺陷`);
   console.log(`  ${'─'.repeat(30)}`);
-  const r2 = await call(`/rest/api/2/issue/${issueKey}/remotelink`);
-  let linked = false;
-  if (r2.status === 200 && Array.isArray(r2.body) && r2.body.length > 0) {
-    for (const link of r2.body) {
-      const url = link.object?.url || '';
-      const title = link.object?.title || '';
-      const rel = link.relationship || '';
-      if (url) {
-        console.log(`  ${url}`);
-        console.log(`  关系: ${rel} | 标题: ${title}`);
-        linked = true;
-      }
-    }
-  }
-  if (!linked) {
-    // fallback: 从标题提取
-    const match = (f.summary || '').match(/(ISVJ-\d+)/);
-    if (match) {
-      console.log(`  https://jira.supermap.work/browse/${match[1]} (从标题提取)`);
-    } else {
-      console.log(`  (无关联的 Jira 缺陷)`);
-    }
+  if (linkedIsvjUrl) {
+    console.log(`  ${linkedIsvjUrl}`);
+  } else {
+    console.log(`  (无关联的 Jira 缺陷)`);
   }
 
-  // 3. 描述
+  // 描述
   console.log(`\n📝 描述`);
   console.log(`  ${'─'.repeat(30)}`);
   if (f.description) {
@@ -130,19 +179,17 @@ async function main() {
     console.log(`  (无描述内容)`);
   }
 
-  // 4. 注释
+  // 注释
   console.log(`\n💬 注释 (Comments)`);
   console.log(`  ${'─'.repeat(30)}`);
-  const r3 = await call(`/rest/api/2/issue/${issueKey}/comment?orderBy=created`);
-  if (r3.status === 200 && Array.isArray(r3.body.comments) && r3.body.comments.length > 0) {
-    for (const c of r3.body.comments) {
+  if (comments.length > 0) {
+    for (const c of comments) {
       console.log(`  ──────────────────────────────────`);
-      console.log(`  ${c.author?.displayName || 'N/A'}  ${fmt(c.created)}`);
-      const body = c.body || '';
-      console.log(`  ${body.replace(/\n/g, '\n  ')}`);
+      console.log(`  ${c.author}  ${fmt(c.created)}`);
+      console.log(`  ${c.body.replace(/\n/g, '\n  ')}`);
     }
     console.log(`  ──────────────────────────────────`);
-    console.log(`  共 ${r3.body.comments.length} 条注释`);
+    console.log(`  共 ${comments.length} 条注释`);
   } else {
     console.log(`  (无注释)`);
   }

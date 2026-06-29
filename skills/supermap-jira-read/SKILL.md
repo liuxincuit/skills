@@ -25,6 +25,7 @@ node scripts/read_jira.js "https://jira.supermap.work/browse/ISVJ-11474"
 
 - `Jira URL`: 完整的 Jira 问题链接，例如 `https://jira.supermap.work/browse/ISVJ-11474`
 - `Issue Key`: Jira 问题 key，例如 `ISVJ-11474`
+- `--json`: 以 JSON 格式输出结构化数据（供其他工具调用）
 
 ## 环境变量
 

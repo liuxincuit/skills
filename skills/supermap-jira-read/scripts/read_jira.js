@@ -283,13 +283,18 @@ function safeDecodeURIComponent(str) {
  */
 async function main() {
     try {
-        // 获取输入参数
-        const input = process.argv[2];
+        // 检查 --json 标志（可出现在任何位置）
+        const jsonMode = process.argv.includes('--json');
+
+        // 获取输入参数（跳过 --json）
+        const positionalArgs = process.argv.slice(2).filter(a => a !== '--json');
+        const input = positionalArgs[0];
 
         if (!input) {
             console.error('❌ 错误: 请提供 Jira URL 或 Issue Key');
             console.log('\n使用方法:');
             console.log('  node read_jira.js ISVJ-11474');
+            console.log('  node read_jira.js ISVJ-11474 --json');
             console.log('  node read_jira.js "http://jira.ispeco.com:8090/browse/ISVJ-11474"');
             process.exit(1);
         }
@@ -314,10 +319,60 @@ async function main() {
             process.exit(1);
         }
 
-        console.log(`🔍 正在查询 Issue: ${issueKey}...\n`);
-
         // 调用 API
         const issue = await fetchIssue(issueKey, token);
+
+        // JSON 模式
+        if (jsonMode) {
+            const fields = issue.fields || {};
+            const result = {
+                key: issue.key,
+                url: `${JIRA_BASE_URL}/browse/${issue.key}`,
+                summary: fields.summary || '',
+                issuetype: fields.issuetype?.name || '',
+                status: fields.status?.name || '',
+                priority: fields.priority?.name || '',
+                resolution: fields.resolution?.name || '',
+                description: fields.description || '',
+                reporter: {
+                    name: fields.reporter?.name || '',
+                    displayName: fields.reporter?.displayName || ''
+                },
+                assignee: {
+                    name: fields.assignee?.name || '',
+                    displayName: fields.assignee?.displayName || ''
+                },
+                created: fields.created || '',
+                updated: fields.updated || '',
+                resolutiondate: fields.resolutiondate || '',
+                components: (fields.components || []).map(c => c.name),
+                fixVersions: (fields.fixVersions || []).map(v => v.name),
+                affectedVersions: (fields.versions || []).map(v => v.name),
+                labels: fields.labels || [],
+                customFields: {
+                    customfield_10040: fields.customfield_10040 || '',
+                    customfield_10043: fields.customfield_10043 || '',
+                    customfield_10042: fields.customfield_10042 || ''
+                },
+                attachments: (fields.attachment || []).map(a => ({
+                    filename: a.filename,
+                    size: a.size,
+                    mimeType: a.mimeType
+                })),
+                comments: (fields.comment?.comments || []).map(c => ({
+                    author: {
+                        name: c.author?.name || '',
+                        displayName: c.author?.displayName || ''
+                    },
+                    created: c.created || '',
+                    body: c.body || ''
+                }))
+            };
+            console.log(JSON.stringify(result, null, 2));
+            return;
+        }
+
+        console.log(`🔍 正在查询 Issue: ${issueKey}...\n`);
 
         // 格式化输出
         formatOutput(issue);

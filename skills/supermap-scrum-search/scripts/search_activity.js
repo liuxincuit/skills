@@ -30,6 +30,7 @@ const since = args.includes('--since') ? args[args.indexOf('--since') + 1] : (()
 const until = args.includes('--until') ? args[args.indexOf('--until') + 1] : untilDefault;
 const username = args.includes('--user') ? args[args.indexOf('--user') + 1] : 'liuxin1';
 const statusFilter = args.includes('--status') ? args[args.indexOf('--status') + 1] : '处理中,已完成,已验收';
+const jsonMode = args.includes('--json');
 
 // ===== HTTP 工具 =====
 function call(path) {
@@ -143,13 +144,15 @@ function formatItems(items) {
 
 // ===== 主逻辑 =====
 async function main() {
-  console.log('='.repeat(72));
-  console.log(`📋 ISVS Scrum 活动日志`);
-  console.log(`   用户: ${username}  时间: ${since} ~ ${until}`);
-  console.log('='.repeat(72));
+  if (!jsonMode) {
+    console.log('='.repeat(72));
+    console.log(`📋 ISVS Scrum 活动日志`);
+    console.log(`   用户: ${username}  时间: ${since} ~ ${until}`);
+    console.log('='.repeat(72));
+  }
 
   // ---- 第1步: 搜索该用户在该时间段的 issue ----
-  console.log(`\n🔍 搜索 ${since} ~ ${until} 的活动...`);
+  console.error(`🔍 搜索 ${since} ~ ${until} 的活动...`);
   const statuses = statusFilter.split(',').map(s => `"${s.trim()}"`).join(', ');
   const jql = `assignee was "${username}" AND status in (${statuses}) AND updated >= "${since}" AND updated <= "${until}" ORDER BY updated DESC`;
   const search = await call(`/rest/api/2/search?jql=${encodeURIComponent(jql)}&maxResults=100&fields=summary,status,assignee,updated`);
@@ -161,19 +164,23 @@ async function main() {
 
   const issues = search.body.issues || [];
   if (issues.length === 0) {
-    console.log('   没有找到活动记录。\n');
+    console.error('   没有找到活动记录。\n');
+    if (jsonMode) {
+      const result = { scope: { user: username, since, until }, activities: [], tasks: [], stats: { total: 0, statusDistribution: {}, linkedJiraCount: 0 } };
+      console.log(JSON.stringify(result));
+    }
     process.exit(0);
   }
-  console.log(`   找到 ${search.body.total} 个 ISVS 任务\n`);
+  console.error(`   找到 ${search.body.total} 个 ISVS 任务`);
 
   // ---- 第2步: 获取每个任务的 changelog 和详情 ----
-  console.log('⏳ 正在获取活动详情...\n');
+  console.error('⏳ 正在获取活动详情...');
   const allActivities = [];
   const taskDetails = [];
 
   for (let i = 0; i < issues.length; i++) {
     const key = issues[i].key;
-    process.stdout.write(`\r   [${i + 1}/${issues.length}] ${key}`);
+    process.stderr.write(`\r   [${i + 1}/${issues.length}] ${key}`);
 
     // 获取 changelog
     const r = await call(`/rest/api/2/issue/${key}?expand=changelog&fields=summary&changelog.maxResults=500`);
@@ -199,7 +206,28 @@ async function main() {
     if (detail) taskDetails.push(detail);
   }
 
-  process.stdout.write('\n');
+  process.stderr.write('\n');
+
+  // ---- JSON 模式: 输出结构化数据 ----
+  if (jsonMode) {
+    const statusCounts = {};
+    for (const t of taskDetails) {
+      statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+    }
+    const linked = taskDetails.filter(t => t.linkedIsvj).length;
+    const result = {
+      scope: { user: username, since, until },
+      activities: allActivities.sort((a, b) => new Date(a.time) - new Date(b.time)),
+      tasks: taskDetails,
+      stats: {
+        total: taskDetails.length,
+        statusDistribution: statusCounts,
+        linkedJiraCount: linked
+      }
+    };
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(0);
+  }
 
   // ---- 第3步: 按时间输出活动日志 ----
   allActivities.sort((a, b) => new Date(b.time) - new Date(a.time));

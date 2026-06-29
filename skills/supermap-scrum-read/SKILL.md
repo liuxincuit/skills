@@ -31,6 +31,7 @@ node scripts/read_task.js ISVS-1165
 ## 参数
 
 - `ISVS Key`: Scrum 任务 key，例如 `ISVS-1165`
+- `--json`: 以 JSON 格式输出结构化数据（供其他工具调用）
 
 ## 输出信息
 
