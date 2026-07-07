@@ -42,6 +42,39 @@ node scripts/search_youtrack.js "<搜索词>"
 
 ---
 
+## 读取任务详情
+
+读取单个 YouTrack 任务的完整详情，包括自定义字段、描述、备注，以及通过 `trimmedIssues` API 自动查找父缺陷（支持 Subtask 链接类型）。
+
+### 触发条件
+
+- 需要查看某个 YouTrack 任务的完整信息
+- 需要找某个任务的父缺陷/父任务
+- 需要查父缺陷的备注内容
+
+### 执行方式
+
+```bash
+node scripts/read_task.js <issue-key>
+```
+
+示例：
+
+```bash
+node scripts/read_task.js CS-5412
+node scripts/read_task.js CS-5355
+```
+
+### 输出信息
+
+- 基本信息（key、标题、项目）
+- 自定义字段（优先级、状态、类型、Sprint、解决人、预估工时等）
+- 描述内容
+- **父缺陷**（通过 trimmedIssues API 自动查找 Subtask INWARD 链接）
+- **备注列表**（含作者、时间、完整内容）
+
+---
+
 ## 生成工作报告
 
 从 YouTrack 获取工作时间记录并生成结构化工作总结报告。
@@ -133,6 +166,7 @@ export YOUTRACK_URL="http://yt.ispeco.com:8099"
 ### 技术细节
 
 - **地址**: `http://yt.ispeco.com:8099`
-- **API**: `GET /api/issues`（搜索）、`GET /api/timetracking/workitems`（工时）
+- **API**: `GET /api/issues`（搜索）、`GET /api/issues/{key}`（读取详情）、`GET /api/issues/{key}/links?fields=...,trimmedIssues(...)`（查找父缺陷）、`GET /api/workitems`（工时）
+- **父缺陷查找方式**: 通过 `/api/issues/{key}/links` 接口，使用 `trimmedIssues` 字段获取关联 issue。当 `direction=INWARD` 且 `sourceToTarget` 包含 "parent for" 时，`trimmedIssues[0]` 即为父缺陷
 - **认证方式**: Bearer Token
 - **跨平台**: 支持 Windows、macOS、Linux
