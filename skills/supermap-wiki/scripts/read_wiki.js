@@ -235,7 +235,7 @@ class HTMLToMarkdown {
             if (rowMatches) {
                 for (const row of rowMatches) {
                     const cells = [];
-                    const cellMatches = row.match(/<t[dh][^>]*>(.*?)<\/t[dh]>/gi);
+                    const cellMatches = row.match(/<t[dh][^>]*>(.*?)<\/t[dh]>/gis);
                     if (cellMatches) {
                         for (const cell of cellMatches) {
                             const cellContent = cell.replace(/<[^>]+>/g, '').trim();
