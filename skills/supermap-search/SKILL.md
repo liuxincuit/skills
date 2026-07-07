@@ -25,17 +25,17 @@ Claude 应该并行执行以下三个搜索：
 
 1. **Wiki 搜索**
 ```bash
-python3 .claude/skills/supermap-wiki-search/scripts/search_wiki.py "<搜索词>"
+node skills/supermap-wiki/scripts/search_wiki.js "<搜索词>"
 ```
 
 2. **Jira 搜索**
 ```bash
-python3 .claude/skills/supermap-jira-search/scripts/search_jira.py "<搜索词>"
+node skills/supermap-jira/scripts/search_jira.js "<搜索词>"
 ```
 
 3. **YouTrack 搜索**
 ```bash
-python3 .claude/skills/supermap-youtrack-search/scripts/search_youtrack.py "<搜索词>"
+node skills/supermap-youtrack/scripts/search_youtrack.js "<搜索词>"
 ```
 
 ## 输出格式

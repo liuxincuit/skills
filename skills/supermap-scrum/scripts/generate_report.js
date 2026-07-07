@@ -5,8 +5,8 @@
  *
  * 整合 Scrum 活动记录 + Jira 问题详情，生成 Markdown 报告。
  * 依赖:
- *   - supermap-scrum-search/scripts/search_activity.js  (Scrum 活动查询)
- *   - supermap-jira-read/scripts/read_jira.js           (Jira 问题查询)
+ *   - supermap-scrum/scripts/search_activity.js  (Scrum 活动查询)
+ *   - supermap-jira/scripts/read_jira.js           (Jira 问题查询)
  *
  * 环境变量:
  *   - SUPERMAP_SCRUM_TOKEN (必需)
@@ -19,13 +19,13 @@ const fs = require('fs');
 
 // ===================== 路径解析 =====================
 const SKILLS_DIR = path.resolve(__dirname, '..', '..');
-const SEARCH_SCRIPT = path.join(SKILLS_DIR, 'supermap-scrum-search', 'scripts', 'search_activity.js');
-const READ_JIRA_SCRIPT = path.join(SKILLS_DIR, 'supermap-jira-read', 'scripts', 'read_jira.js');
+const SEARCH_SCRIPT = path.join(SKILLS_DIR, 'supermap-scrum', 'scripts', 'search_activity.js');
+const READ_JIRA_SCRIPT = path.join(SKILLS_DIR, 'supermap-jira', 'scripts', 'read_jira.js');
 
 // ===================== 依赖检查 =====================
 const DEPENDENCIES = [
-  { name: 'supermap-scrum-search/scripts/search_activity.js', path: SEARCH_SCRIPT },
-  { name: 'supermap-jira-read/scripts/read_jira.js', path: READ_JIRA_SCRIPT }
+  { name: 'supermap-scrum/scripts/search_activity.js', path: SEARCH_SCRIPT },
+  { name: 'supermap-jira/scripts/read_jira.js', path: READ_JIRA_SCRIPT }
 ];
 
 for (const dep of DEPENDENCIES) {
