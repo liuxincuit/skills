@@ -31,7 +31,8 @@ skill 分为两种类型
 ├─.claude-plugin     # claude code 的插件目录
 ├─hooks              # claude code hooks 配置
 ├─pi
-│  └─extensions      # pi 相关的插件配置
+│  │─extensions      # pi 相关的插件配置
+│  └─workflow        # pi 插件 quintinshaw/pi-dynamic-workflows 可使用的工作流
 ├─package.json       # 部分 AI Agent 的插件文件，比如 pi
 └─skills             # 个人 skill
 ```
@@ -39,6 +40,7 @@ skill 分为两种类型
 ## 重要注意事项
 
 - 技能之间相互独立，技能之间不共享依赖
+- ***工作流一般依赖技能，技能名称更新需要同步检查工作流***
 - 脚本需自行处理错误情况和输出格式化
 - 更新技能时需保持向后兼容，或记录破坏性变更
 - 切勿将 API Token 或凭证提交到代码仓库
