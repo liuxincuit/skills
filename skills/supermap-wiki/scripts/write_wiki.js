@@ -426,7 +426,7 @@ async function updatePage(args) {
         },
         version: {
             number: nextVersion,
-            message: 'Updated via supermap-wiki-writer'
+            message: 'Updated via supermap-wiki'
         },
         body: {
             storage: {
