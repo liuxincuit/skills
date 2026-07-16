@@ -28,6 +28,28 @@ node scripts/search_wiki.js "<搜索词>"
 
 可选参数：
 - `-l, --limit`: 限制返回结果数量（默认 20）
+- `--cql`: 将搜索词视为原始 CQL（Confluence Query Language），支持结构化查询
+
+#### 进阶用法：使用 --cql 进行结构化查询
+
+`--cql` 参数允许直接传入 Confluence CQL 语句，实现按创建者、空间、时间、类型等字段过滤。
+
+常用 CQL 示例：
+
+| 用途 | 命令 |
+|------|------|
+| 查找当前用户创建的页面 | `node scripts/search_wiki.js --cql "creator = currentUser() AND type = page"` |
+| 查找指定用户创建的页面 | `node scripts/search_wiki.js --cql "creator = \"wangwu\" AND type = page"` |
+| 查找指定空间中的页面 | `node scripts/search_wiki.js --cql "space = PDG AND type = page"` |
+| 查找今天修改过的页面 | `node scripts/search_wiki.js --cql "lastModified >= startOfDay() AND type = page"` |
+| 查找最近7天的博客 | `node scripts/search_wiki.js --cql "type = blogpost AND created >= last7Days()"` |
+| 按标题搜索特定空间 | `node scripts/search_wiki.js --cql "space = \"云产品研发中心\" AND title ~ \"方案\" AND type = page"` |
+| 组合条件查找 | `node scripts/search_wiki.js --cql "creator = currentUser() AND space = PDG AND type = page"` |
+
+注意事项：
+- CQL 中字符串值用双引号包裹，命令行中转义用 `\"`
+- CQL 支持 `currentUser()`、`startOfDay()`、`last7Days()` 等内置函数
+- 更多 CQL 参考：[Atlassian CQL 文档](https://developer.atlassian.com/server/confluence/confluence-query-language-cql/)
 
 ### 输出格式
 

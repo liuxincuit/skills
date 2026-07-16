@@ -24,9 +24,14 @@ function getToken() {
     return token;
 }
 
-function buildSearchUrl(query, limit = 20) {
+function buildSearchUrl(query, limit = 20, rawCql = false) {
     // Build CQL query
-    const cql = `siteSearch ~ "${query}" AND type in ("space","user","com.atlassian.confluence.extra.team-calendars:calendar-content-type","attachment","page","com.atlassian.confluence.extra.team-calendars:space-calendars-view-content-type","blogpost")`;
+    let cql;
+    if (rawCql) {
+        cql = query;
+    } else {
+        cql = `siteSearch ~ "${query}" AND type in ("space","user","com.atlassian.confluence.extra.team-calendars:calendar-content-type","attachment","page","com.atlassian.confluence.extra.team-calendars:space-calendars-view-content-type","blogpost")`;
+    }
 
     const params = new URLSearchParams({
         cql: cql,
@@ -93,8 +98,8 @@ function makeRequest(url, token) {
     });
 }
 
-async function searchWiki(query, token, limit) {
-    const url = buildSearchUrl(query, limit);
+async function searchWiki(query, token, limit, rawCql) {
+    const url = buildSearchUrl(query, limit, rawCql);
 
     try {
         const response = await makeRequest(url, token);
@@ -182,16 +187,21 @@ Environment Variables:
     SUPERMAP_WIKI_TOKEN  - Required. Your wiki API token for authentication.
 
 Options:
+    --cql                Treat the search query as raw CQL (Confluence Query Language)
     -l, --limit <number>  Maximum number of results (default: 20)
     -h, --help           Show this help message
 
 Examples:
     node search_wiki.js "project documentation"
     node search_wiki.js deployment -l 50
+    node search_wiki.js --cql "creator = currentUser() AND type = page"
+    node search_wiki.js --cql "space = PDG AND type = page" -l 10
     node search_wiki.js --help
 
 Output:
     Results are displayed as a markdown table with titles, spaces, and excerpts.
+
+For more CQL examples, see: https://developer.atlassian.com/server/confluence/confluence-query-language-cql/
 `);
 }
 
@@ -199,7 +209,8 @@ function parseArgs(args) {
     const result = {
         query: '',
         limit: 20,
-        help: false
+        help: false,
+        rawCql: false
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -207,6 +218,8 @@ function parseArgs(args) {
 
         if (arg === '-h' || arg === '--help') {
             result.help = true;
+        } else if (arg === '--cql') {
+            result.rawCql = true;
         } else if ((arg === '-l' || arg === '--limit') && i + 1 < args.length) {
             const limit = parseInt(args[i + 1], 10);
             if (!isNaN(limit) && limit > 0) {
@@ -233,7 +246,7 @@ async function main() {
 
     const token = getToken();
 
-    const data = await searchWiki(args.query, token, args.limit);
+    const data = await searchWiki(args.query, token, args.limit, args.rawCql);
     formatAsMarkdown(data);
 }
 
