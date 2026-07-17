@@ -68,10 +68,87 @@ node scripts/read_task.js CS-5355
 ### 输出信息
 
 - 基本信息（key、标题、项目）
+- **标签列表**
 - 自定义字段（优先级、状态、类型、Sprint、解决人、预估工时等）
 - 描述内容
 - **父缺陷**（通过 trimmedIssues API 自动查找 Subtask INWARD 链接）
 - **备注列表**（含作者、时间、完整内容）
+
+---
+
+## 添加评论
+
+向 YouTrack 任务的评论区写入分析结论、工作记录等信息。
+
+### 触发条件
+
+- 需要将分析结果输出到 YouTrack 任务评论区
+- 需要在任务中记录工作进展或结论
+
+### 执行方式
+
+```bash
+node scripts/add_comment.js <issue-key> "<评论内容>"
+```
+
+示例：
+
+```bash
+node scripts/add_comment.js CS-5451 "分析结论：问题属实，详见代码分析。"
+```
+
+### 注意事项
+
+- 评论内容用双引号包裹，如内容包含双引号需要转义
+- 评论会追加到任务现有评论区末尾，不会覆盖已有评论
+
+---
+
+## 管理标签
+
+列出、搜索、创建标签，以及为任务添加或移除标签。
+
+### 触发条件
+
+- 需要查看 YouTrack 中已有的标签
+- 需要为任务打标签分类
+- 需要移除任务的某个标签
+
+### 执行方式
+
+```bash
+# 列出所有标签（可带关键词过滤标签名）
+node scripts/manage_tag.js list [关键词]
+
+# 列出某个 issue 上的标签
+node scripts/manage_tag.js list-issue <issue-key>
+
+# 创建新标签
+node scripts/manage_tag.js create <标签名称>
+
+# 为任务添加标签（标签不存在则自动创建）
+node scripts/manage_tag.js add <issue-key> <标签名称>
+
+# 移除任务的标签
+node scripts/manage_tag.js remove <issue-key> <标签名称>
+```
+
+示例：
+
+```bash
+node scripts/manage_tag.js list
+node scripts/manage_tag.js list CVE
+node scripts/manage_tag.js list-issue CS-5451
+node scripts/manage_tag.js create clearly
+node scripts/manage_tag.js add CS-5451 clearly
+node scripts/manage_tag.js remove CS-5451 clearly
+```
+
+### 注意事项
+
+- `add` 命令在标签不存在时会自动创建再关联，无需先执行 `create`
+- 标签名称区分大小写
+- `list [关键词]` 搜索的是全局标签名称，不是 issue 上的标签。要查某个 issue 有哪些标签，使用 `list-issue <issue-key>`
 
 ---
 
@@ -166,7 +243,7 @@ export YOUTRACK_URL="http://yt.ispeco.com:8099"
 ### 技术细节
 
 - **地址**: `http://yt.ispeco.com:8099`
-- **API**: `GET /api/issues`（搜索）、`GET /api/issues/{key}`（读取详情）、`GET /api/issues/{key}/links?fields=...,trimmedIssues(...)`（查找父缺陷）、`GET /api/workitems`（工时）
+- **API**: `GET /api/issues`（搜索）、`GET /api/issues/{key}?fields=tags(id,name)`（读取详情含标签）、`POST /api/issues/{key}/comments`（添加评论）、`GET /api/tags`（标签列表/搜索）、`POST /api/tags`（创建标签）、`POST /api/issues/{key}`（更新 issue 的 tags 字段）、`GET /api/issues/{key}/links?fields=...,trimmedIssues(...)`（查找父缺陷）、`GET /api/workitems`（工时）
 - **父缺陷查找方式**: 通过 `/api/issues/{key}/links` 接口，使用 `trimmedIssues` 字段获取关联 issue。当 `direction=INWARD` 且 `sourceToTarget` 包含 "parent for" 时，`trimmedIssues[0]` 即为父缺陷
 - **认证方式**: Bearer Token
 - **跨平台**: 支持 Windows、macOS、Linux

@@ -76,6 +76,7 @@ function makeRequest(path) {
 async function getIssue(issueKey) {
     const fields = 'id,idReadable,summary,description,project(id,shortName),' +
         'created,updated,' +
+        'tags(id,name),' +
         'customFields(name,value(name,login,fullName,minutes,presentation)),' +
         'comments(author(login,fullName),text,created)';
     return await makeRequest(`/api/issues/${issueKey}?fields=${encodeURIComponent(fields)}`);
@@ -133,6 +134,12 @@ function formatOutput(issue, parentIssue, parentComments) {
     // Project
     if (issue.project) {
         lines.push(`  项目: ${issue.project.shortName || ''} - ${issue.project.name || ''}`);
+    }
+
+    // Tags
+    const tags = issue.tags || [];
+    if (tags.length > 0) {
+        lines.push(`  标签: ${tags.map(t => t.name).join(', ')}`);
     }
 
     // Custom fields
