@@ -65,6 +65,73 @@ node analyze-build.js "<TeamCity URL>" --raw
 
 Claude 将基于这些数据提供详细的失败分析和解决方案。
 
+### 方法 4: 构建产物操作
+
+列出构建产物：
+
+```bash
+node analyze-build.js "<TeamCity URL>" --list-artifacts
+```
+
+输出包含每个产物的名称、大小、修改时间。
+
+读取指定产物内容：
+
+```bash
+node analyze-build.js "<TeamCity URL>" --artifact <文件名>
+```
+
+示例（读取 OWASP DC XML 报告）：
+```bash
+node analyze-build.js "http://ci.iserver.com:90/buildConfiguration/IServer_Distribute_DistributeJarsIServerNVDAnalyst/5218989" --artifact dependency-check-report.xml
+```
+
+常用产物文件：
+| 文件名 | 用途 |
+|--------|------|
+| `dependency-check-report.xml` | OWASP DC 完整报告（含版本范围、CVSS、证据） |
+| `dependency-check-report.json` | JSON 格式报告 |
+| `dependency-check-report.html` | HTML 可视报告 |
+| `dependency-check-report.csv` | CSV 格式报告 |
+| `dependency-check-junit.xml` | JUnit 格式测试结果 |
+
+**注意**：来自 RetireJS 数据源的漏洞在 XML 报告中 `<vulnerableSoftware>` 可能为空，不包含修复版本号——需要联网访问对应 GHSA 页面。
+
+### 方法 5: CVE 报告转 Markdown 表格
+
+从 TeamCity 构建 URL 直接生成 CVE Markdown 报告 `cve-report.md`：
+
+```bash
+node cve-report.js <TeamCity URL>
+```
+
+示例：
+```bash
+node cve-report.js "http://ci.iserver.com:90/buildConfiguration/IServer_Distribute_DistributeJarsIServerNVDAnalyst/5218989"
+```
+
+输出包含：
+- 仅活跃漏洞（排除 TeamCity 中已 mute 的条目）
+- 从 OWASP DC 报告提取修复版本建议
+- 输出文件 `cve-report.md` 到当前目录
+
+数据流：
+1. 调用 TeamCity API 获取测试结果（91 失败 + 39 muted）
+2. 获取 `dependency-check-report.xml` 产物提取修复版本
+3. 交叉匹配后输出 Markdown 表格
+
+输出格式：
+```
+| 触发组件 | 触发依赖 | 漏洞编号/描述 | 修复建议 |
+| --- | --- | --- | --- |
+| imageservice-webui-...jar | lodash@4.17.21 | CVE-2026-4800 | 升级 lodash:lodash 至 4.18.0 以上 |
+```
+
+说明：
+- NVD 来源的 CVE 自动提取修复版本号填入「修复建议」
+- RetireJS 来源的描述性漏洞标记为「需联网查阅 GHSA 页面」
+- 自动过滤已静音的漏洞
+
 ## 使用前提
 
 1. **环境变量**: 根据 CI 服务器地址设置对应的环境变量
@@ -167,6 +234,7 @@ const options = {
    - 获取失败测试列表
    - 获取问题列表
    - 获取变更记录
+   - 读取构建产物（`dependency-check-report.xml` 等）辅助分析
    - 基于以上信息进行降级分析
 
 3. **LLM 分析**: 使用 Claude 分析日志或降级信息

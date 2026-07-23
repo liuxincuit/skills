@@ -475,10 +475,45 @@ async function getRawBuildData(buildUrl, token) {
     };
 }
 
+/**
+ * 列出构建产物
+ * @param {string} buildUrl - TeamCity 构建 URL
+ * @param {string} token - TeamCity Token（可选）
+ * @returns {Promise<Array>} 产物列表
+ */
+async function listBuildArtifacts(buildUrl, token) {
+    const { baseUrl, buildTypeId, branch } = parseTeamcityUrl(buildUrl);
+    const authToken = getCiToken(baseUrl, token);
+    const client = new TeamCityClient(baseUrl, authToken);
+
+    const build = await client.getLatestBuild(buildTypeId, branch);
+    const artifacts = await client.listArtifacts(build.id);
+    return artifacts;
+}
+
+/**
+ * 读取构建产物内容
+ * @param {string} buildUrl - TeamCity 构建 URL
+ * @param {string} artifactPath - 产物路径
+ * @param {string} token - TeamCity Token（可选）
+ * @returns {Promise<string>} 产物内容
+ */
+async function readBuildArtifact(buildUrl, artifactPath, token) {
+    const { baseUrl, buildTypeId, branch } = parseTeamcityUrl(buildUrl);
+    const authToken = getCiToken(baseUrl, token);
+    const client = new TeamCityClient(baseUrl, authToken);
+
+    const build = await client.getLatestBuild(buildTypeId, branch);
+    const content = await client.readArtifact(build.id, artifactPath);
+    return content;
+}
+
 module.exports = {
     analyzeBuild,
     getBuildStatus,
     getRawBuildData,
+    listBuildArtifacts,
+    readBuildArtifact,
     getCiEnvVariable,
     getCiToken,
     extractSonarInfo,
@@ -500,8 +535,10 @@ TeamCity 构建分析工具
   <TeamCity URL>  TeamCity 构建配置 URL
 
 选项:
-  --raw, -r       原始数据模式：输出构建信息和日志（JSON格式），供Claude分析
-  --help, -h      显示帮助信息
+  --raw, -r            原始数据模式：输出构建信息和日志（JSON格式），供Claude分析
+  --list-artifacts     列出构建产物文件
+  --artifact <path>    读取指定构建产物内容
+  --help, -h           显示帮助信息
 
 环境变量:
   SUPERMAP_CDCI_TOKEN  - 用于 cdci.ispeco.com:90
@@ -510,13 +547,55 @@ TeamCity 构建分析工具
 示例:
   # 获取原始构建数据（Claude分析模式）
   node analyze-build.js "http://cdci.ispeco.com:90/buildConfiguration/MyProject_Build" --raw
+
+  # 列出构建产物
+  node analyze-build.js "http://ci.iserver.com:90/buildConfiguration/MyProject_Build" --list-artifacts
+
+  # 读取指定构建产物
+  node analyze-build.js "http://ci.iserver.com:90/buildConfiguration/MyProject_Build" --artifact dependency-check-report.xml
 `);
         process.exit(0);
     }
 
     const buildUrl = args[0];
     const rawMode = args.includes('--raw') || args.includes('-r');
-    const token = args.find(arg => !arg.startsWith('--') && !arg.startsWith('http')) || null;
+    const listArtifactsMode = args.includes('--list-artifacts');
+    const artifactIndex = args.indexOf('--artifact');
+    const artifactPath = artifactIndex !== -1 && artifactIndex + 1 < args.length ? args[artifactIndex + 1] : null;
+
+    // 收集所有被 --artifact 或 --list-artifacts 占用的参数索引，排除它们后找 token
+    const consumedIndices = new Set([0]);
+    if (rawMode) consumedIndices.add(args.indexOf('--raw'));
+    if (listArtifactsMode) consumedIndices.add(args.indexOf('--list-artifacts'));
+    if (artifactIndex !== -1) {
+      consumedIndices.add(artifactIndex);
+      if (artifactIndex + 1 < args.length) consumedIndices.add(artifactIndex + 1);
+    }
+    const token = args.find((arg, i) => !consumedIndices.has(i) && !arg.startsWith('--') && !arg.startsWith('http')) || null;
+
+    if (listArtifactsMode) {
+        listBuildArtifacts(buildUrl, token).then(files => {
+            console.log(JSON.stringify(files.map(f => ({
+                name: f.name,
+                size: f.size,
+                modificationTime: f.modificationTime
+            })), null, 2));
+        }).catch(error => {
+            console.error(JSON.stringify({ error: error.message }));
+            process.exit(1);
+        });
+        return;
+    }
+
+    if (artifactPath) {
+        readBuildArtifact(buildUrl, artifactPath, token).then(content => {
+            process.stdout.write(content);
+        }).catch(error => {
+            console.error(JSON.stringify({ error: error.message }));
+            process.exit(1);
+        });
+        return;
+    }
 
     if (rawMode) {
         // 原始数据模式：输出 JSON 供 Claude 分析

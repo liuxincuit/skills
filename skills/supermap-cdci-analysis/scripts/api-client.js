@@ -475,6 +475,44 @@ class TeamCityClient {
     }
 
     /**
+     * 列出构建产物
+     * @param {string} buildId - 构建 ID
+     * @returns {Promise<Array>} 产物文件列表
+     */
+    async listArtifacts(buildId) {
+        try {
+            const url = this._getUrl(`/app/rest/builds/id:${buildId}/artifacts/children/`);
+            const output = await this._executeRequest(url, {
+                timeout: 30000,
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = JSON.parse(output);
+            return data.file || [];
+        } catch (error) {
+            throw new Error(`获取构建产物列表失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 读取构建产物内容
+     * @param {string} buildId - 构建 ID
+     * @param {string} artifactPath - 产物路径（如 dependency-check-report.xml）
+     * @returns {Promise<string>} 产物内容
+     */
+    async readArtifact(buildId, artifactPath) {
+        const cleanPath = artifactPath.replace(/^\/+/, '');
+        const url = this._getUrl(`/app/rest/builds/id:${buildId}/artifacts/content/${cleanPath}`);
+        try {
+            return await this._executeRequest(url, {
+                timeout: 120000,
+                headers: { 'Accept': '*/*' }
+            });
+        } catch (error) {
+            throw new Error(`读取构建产物 ${artifactPath} 失败: ${error.message}`);
+        }
+    }
+
+    /**
      * 获取构建参数（结果属性）
      * 只保留与构建分析相关的关键参数，避免返回大量环境噪音
      * @param {string} buildId - 构建 ID
