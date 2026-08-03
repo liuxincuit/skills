@@ -391,8 +391,8 @@ class TeamCityClient {
             const statsOutput = await this._executeRequest(statsUrl);
             const stats = JSON.parse(statsOutput);
 
-            // 获取失败测试详情
-            const failedUrl = this._getUrl(`/app/rest/testOccurrences?locator=build:(id:${buildId}),status:FAILURE`);
+            // 获取失败测试详情（包含 details/stacktrace）
+            const failedUrl = this._getUrl(`/app/rest/testOccurrences?locator=build:(id:${buildId}),status:FAILURE&fields=testOccurrence(id,name,status,duration,details,stacktrace,test(id,name))`);
             const failedOutput = await this._executeRequest(failedUrl);
             const failedData = JSON.parse(failedOutput);
 

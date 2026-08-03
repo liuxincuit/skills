@@ -59,11 +59,18 @@ node analyze-build.js "<TeamCity URL>" --raw
 输出包含：
 - 构建基本信息（编号、状态、statusText）
 - 构建日志（最后 500 行）
-- 失败测试列表
+- 失败测试列表（含 `details` 和 `stacktrace` 字段）
 - 问题列表
 - 变更记录
 
 Claude 将基于这些数据提供详细的失败分析和解决方案。
+
+如果 `details` 为空但测试确实失败，直接通过 TeamCity 的 `/downloadBuildLog.html` 端点获取日志：
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://cdci.ispeco.com:90/downloadBuildLog.html?buildId=<build_id>" | grep -A 20 "<test_name>"
+```
+构建 ID 可在原始数据的 `build.id` 或参数的 `teamcity.build.id` 中找到。
 
 ### 方法 4: 构建产物操作
 
