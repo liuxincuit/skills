@@ -8,6 +8,8 @@
 const https = require('https');
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
 
 // 配置
 const JIRA_BASE_URL = 'https://jira.supermap.work';
@@ -224,6 +226,9 @@ function formatOutput(issue) {
         console.log('-'.repeat(40));
         fields.attachment.forEach(att => {
             console.log(`  • ${att.filename} (${formatFileSize(att.size)})`);
+            if (att.content) {
+                console.log(`    下载: ${att.content}`);
+            }
         });
     }
 
@@ -279,22 +284,91 @@ function safeDecodeURIComponent(str) {
 }
 
 /**
+ * 下载附件
+ * @param {Object} att - 附件对象（含 content 下载 URL）
+ * @param {string} token - 认证 Token
+ * @param {string} dir - 保存目录
+ * @returns {Promise<string>} 保存的文件路径
+ */
+function downloadAttachment(att, token, dir) {
+    return new Promise((resolve, reject) => {
+        if (!att.content) {
+            reject(new Error(`附件 ${att.filename} 缺少下载 URL`));
+            return;
+        }
+        const parsedUrl = url.parse(att.content);
+        const options = {
+            hostname: parsedUrl.hostname,
+            port: parsedUrl.port,
+            path: parsedUrl.path,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        };
+        const client = parsedUrl.protocol === 'https:' ? https : http;
+        const filePath = path.join(dir, att.filename);
+        const req = client.request(options, (res) => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                const ws = fs.createWriteStream(filePath);
+                res.pipe(ws);
+                ws.on('finish', () => resolve(filePath));
+                ws.on('error', (err) => reject(err));
+            } else {
+                res.resume();
+                reject(new Error(`下载失败 HTTP ${res.statusCode}: ${att.filename}`));
+            }
+        });
+        req.on('error', (error) => reject(new Error(`下载请求失败: ${error.message}`)));
+        req.setTimeout(60000, () => {
+            req.destroy();
+            reject(new Error(`下载超时: ${att.filename}`));
+        });
+        req.end();
+    });
+}
+
+/**
  * 主函数
  */
 async function main() {
     try {
-        // 检查 --json 标志（可出现在任何位置）
-        const jsonMode = process.argv.includes('--json');
+        // 解析命令行参数：node read_jira.js <input> [--json] [--download [pattern]] [--download-dir <dir>]
+        const args = process.argv.slice(2);
+        let input = null;
+        let jsonMode = false;
+        let downloadMode = false;
+        let downloadPattern = null;
+        let downloadDir = process.cwd();
 
-        // 获取输入参数（跳过 --json）
-        const positionalArgs = process.argv.slice(2).filter(a => a !== '--json');
-        const input = positionalArgs[0];
+        for (let i = 0; i < args.length; i++) {
+            const a = args[i];
+            if (a === '--json') {
+                jsonMode = true;
+            } else if (a === '--download') {
+                downloadMode = true;
+                if (args[i + 1] && !args[i + 1].startsWith('--')) {
+                    downloadPattern = args[i + 1];
+                    i++;
+                }
+            } else if (a === '--download-dir') {
+                if (args[i + 1]) {
+                    downloadDir = args[i + 1];
+                    i++;
+                }
+            } else if (input === null) {
+                input = a;
+            }
+        }
 
         if (!input) {
             console.error('❌ 错误: 请提供 Jira URL 或 Issue Key');
             console.log('\n使用方法:');
             console.log('  node read_jira.js ISVJ-11474');
             console.log('  node read_jira.js ISVJ-11474 --json');
+            console.log('  node read_jira.js ISVJ-11474 --download');
+            console.log('  node read_jira.js ISVJ-11474 --download "截图"');
+            console.log('  node read_jira.js ISVJ-11474 --download --download-dir ./attachments');
             console.log('  node read_jira.js "http://jira.ispeco.com:8090/browse/ISVJ-11474"');
             process.exit(1);
         }
@@ -321,6 +395,38 @@ async function main() {
 
         // 调用 API
         const issue = await fetchIssue(issueKey, token);
+
+        // 下载模式
+        if (downloadMode) {
+            const attachments = (issue.fields?.attachment) || [];
+            if (attachments.length === 0) {
+                console.log(`ℹ️ Issue ${issueKey} 没有附件`);
+                return;
+            }
+            const targets = downloadPattern
+                ? attachments.filter(att => att.filename.includes(downloadPattern))
+                : attachments;
+            if (targets.length === 0) {
+                console.log(`ℹ️ 没有文件名包含 "${downloadPattern}" 的附件`);
+                return;
+            }
+            if (!fs.existsSync(downloadDir)) {
+                fs.mkdirSync(downloadDir, { recursive: true });
+            }
+            console.log(`⬇️ 正在下载 ${targets.length} 个附件到 ${downloadDir} ...`);
+            let successCount = 0;
+            for (const att of targets) {
+                try {
+                    const filePath = await downloadAttachment(att, token, downloadDir);
+                    console.log(`  ✅ ${att.filename} -> ${filePath}`);
+                    successCount++;
+                } catch (e) {
+                    console.error(`  ❌ ${att.filename}: ${e.message}`);
+                }
+            }
+            console.log(`\n下载完成: ${successCount}/${targets.length}`);
+            return;
+        }
 
         // JSON 模式
         if (jsonMode) {
@@ -357,7 +463,8 @@ async function main() {
                 attachments: (fields.attachment || []).map(a => ({
                     filename: a.filename,
                     size: a.size,
-                    mimeType: a.mimeType
+                    mimeType: a.mimeType,
+                    content: a.content || ''
                 })),
                 comments: (fields.comment?.comments || []).map(c => ({
                     author: {

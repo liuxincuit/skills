@@ -90,7 +90,24 @@ node scripts/read_jira.js "https://jira.supermap.work/browse/ISVJ-11474"
 - 组件和版本
 - 描述
 - **缺陷详情**（自定义字段：重现步骤、详细描述、测试环境）
-- 附件列表
+- 附件列表（含**下载 URL**）
+
+### 下载附件
+
+读取 Issue 详情时，附件会输出下载 URL。也可以直接下载附件到本地：
+
+```bash
+# 下载全部附件到当前目录
+node scripts/read_jira.js ISVJ-11102 --download
+
+# 按文件名关键字过滤下载（如只下载截图）
+node scripts/read_jira.js ISVJ-11102 --download "截图"
+
+# 指定保存目录（不存在会自动创建）
+node scripts/read_jira.js ISVJ-11102 --download --download-dir ./attachments
+```
+
+`--json` 模式下 `attachments` 数组的 `content` 字段为附件下载 URL，可配合脚本进一步处理。
 
 **注意**：Supermap Jira 使用自定义字段存储缺陷详情：
 - `customfield_10040`: 缺陷重现步骤
