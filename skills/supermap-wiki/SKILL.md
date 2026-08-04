@@ -1,12 +1,12 @@
 ---
 name: supermap-wiki
-description: 完整操作 Supermap Confluence Wiki，支持搜索、读取、写入功能。搜索文档查找信息，读取页面内容（含图片、评论、递归引用），创建新页面或更新现有页面（可指定模板）。
+description: 完整操作 Supermap Confluence Wiki，支持搜索、读取、写入、标签管理、评论功能。搜索文档查找信息，读取页面内容（含图片、评论、递归引用），创建新页面或更新现有页面（可指定模板），管理页面标签，给页面添加评论。
 allowed-tools: Bash
 ---
 
 # Supermap Wiki 操作技能
 
-完整操作 Supermap Confluence Wiki 系统，涵盖搜索、读取、写入三大功能。
+完整操作 Supermap Confluence Wiki 系统，涵盖搜索、读取、写入、标签管理、评论功能。
 
 ---
 
@@ -177,6 +177,72 @@ Page ID: {pageId}
 Version: {新版本号}
 Link: https://wiki.ispeco.com/pages/viewpage.action?pageId={pageId}
 ```
+
+---
+
+## 管理页面标签
+
+给 wiki 页面添加/移除/查看标签。标签是全局共享元数据，对所有人可见；给页面打标签会改变页面的可见状态，请确认这是预期的操作。
+
+### 执行脚本
+
+```bash
+# 列出页面标签
+node scripts/manage_label.js list <pageId>
+
+# 给页面添加标签（已存在则跳过，幂等）
+node scripts/manage_label.js add <pageId> <标签名>
+
+# 移除页面标签（不存在则提示）
+node scripts/manage_label.js remove <pageId> <标签名>
+```
+
+### 示例
+
+```bash
+node scripts/manage_label.js list 130526896
+node scripts/manage_label.js add 130526896 explored
+node scripts/manage_label.js remove 130526896 explored
+```
+
+### 输出格式
+
+- list: 每行一个标签名；无标签时输出 `(无标签)`
+- add: `Label added to page {pageId}: {标签名}`；已存在时提示 Nothing to do
+- remove: `Label removed from page {pageId}: {标签名}`；不存在时提示 Nothing to remove
+
+### 错误处理
+
+- 与现有脚本一致：缺 token / 401 / 403 / 404 / 网络错误 / 超时均输出对应提示并以退出码 1 退出
+
+---
+
+## 给页面添加评论
+
+给 wiki 页面添加一条评论。评论对所有人可见，常用于回写处理结果、留痕。
+
+### 执行脚本
+
+```bash
+node scripts/add_comment.js <pageId> <评论文本或文件路径>
+```
+
+### 示例
+
+```bash
+node scripts/add_comment.js 130526896 "任务已完成，详见评论"
+node scripts/add_comment.js 130526896 ./result.md
+```
+
+### 说明
+
+- 文本参数如果是一个存在的文件路径，则读取文件内容作为评论
+- 评论内容自动转义并转换为 Confluence storage 格式（段落换行转 `<p>`）
+- 输出: `Comment added to page {pageId} successfully.` 及 `Comment ID: {id}`
+
+### 错误处理
+
+- 与现有脚本一致：缺 token / 401 / 403 / 404 / 网络错误 / 超时均输出对应提示并以退出码 1 退出
 
 ---
 
