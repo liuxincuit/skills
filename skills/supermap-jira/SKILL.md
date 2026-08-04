@@ -60,6 +60,8 @@ node scripts/search_jira.js --jql "<JQL 查询语句>"
 node scripts/search_jira.js --jql "(summary ~ \"范围查询\" OR summary ~ \"BOUNDS\") AND project = ISVJ ORDER BY created DESC"
 ```
 
+**注意**：普通搜索只匹配标题（summary）和描述（description）字段，**搜不到 issue key**。已知 issue key（如 ISVJ-11971）时，直接使用 `node scripts/read_jira.js <KEY>` 读取详情，或使用高级搜索 `--jql 'key = "ISVJ-11971"'`。
+
 ---
 
 ## 读取 Jira 详情
