@@ -45,8 +45,10 @@ node scripts/search_wiki.js "<搜索词>"
 | 查找最近7天的博客 | `node scripts/search_wiki.js --cql "type = blogpost AND created >= last7Days()"` |
 | 按标题搜索特定空间 | `node scripts/search_wiki.js --cql "space = \"云产品研发中心\" AND title ~ \"方案\" AND type = page"` |
 | 组合条件查找 | `node scripts/search_wiki.js --cql "creator = currentUser() AND space = PDG AND type = page"` |
+| 精确搜索 CVE 编号 | `node scripts/search_wiki.js --cql 'text ~ "CVE-2024-6485" AND type = page'` |
 
 注意事项：
+- **搜索 CVE 编号必须使用 CQL 的 `text ~` 而非普通搜索**：普通 `siteSearch` 会拆词匹配（如 `CVE-2024-6485` 会匹配出 `CVE-2024-55194` 等大量无关页面），只有 `text ~ "完整编号"` 才能精确命中包含该 CVE 的页面
 - CQL 中字符串值用双引号包裹，命令行中转义用 `\"`
 - CQL 支持 `currentUser()`、`startOfDay()`、`last7Days()` 等内置函数
 - 更多 CQL 参考：[Atlassian CQL 文档](https://developer.atlassian.com/server/confluence/confluence-query-language-cql/)
