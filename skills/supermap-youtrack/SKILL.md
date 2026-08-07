@@ -88,18 +88,23 @@ node scripts/read_task.js CS-5355
 ### 执行方式
 
 ```bash
+# 字符串模式（默认）
 node scripts/add_comment.js <issue-key> "<评论内容>"
+# 文件模式（显式 --file 标志，适合长文本，避免命令行转义问题）
+node scripts/add_comment.js <issue-key> --file <评论内容文件路径>
 ```
 
 示例：
 
 ```bash
 node scripts/add_comment.js CS-5451 "分析结论：问题属实，详见代码分析。"
+node scripts/add_comment.js CS-5451 --file ./analysis.md
 ```
 
 ### 注意事项
 
-- 评论内容用双引号包裹，如内容包含双引号需要转义
+- 默认第二个参数按字符串发送，不会自动判断是否为文件路径；需要读取文件内容时必须显式加 `--file` 标志
+- 字符串模式下评论内容用双引号包裹，如内容包含双引号需要转义
 - 评论会追加到任务现有评论区末尾，不会覆盖已有评论
 
 ---

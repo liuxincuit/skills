@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const http = require('http');
+const fs = require('fs');
 
 const YOUTRACK_HOST = 'yt.ispeco.com';
 const YOUTRACK_PORT = 8099;
@@ -12,12 +13,29 @@ if (!token) {
 
 const args = process.argv.slice(2);
 if (args.length < 2) {
-    console.error('Usage: node add_comment.js <issue-key> <comment-text-file-or-string>');
+    console.error('Usage: node add_comment.js <issue-key> "<comment-text>" | <issue-key> --file <path>');
     process.exit(1);
 }
 
 const issueKey = args[0];
-const commentText = args.slice(1).join(' ');
+const fileFlagIdx = args.indexOf('--file');
+let commentText;
+if (fileFlagIdx !== -1) {
+    const filePath = args[fileFlagIdx + 1];
+    if (!filePath) {
+        console.error('Error: --file flag requires a file path');
+        process.exit(1);
+    }
+    try {
+        commentText = fs.readFileSync(filePath, 'utf8');
+    } catch (err) {
+        console.error(`Error: Cannot read comment file: ${filePath}`);
+        process.exit(1);
+    }
+}
+else {
+    commentText = args.slice(1).join(' ');
+}
 
 function addComment(issueKey, text) {
     return new Promise((resolve, reject) => {
