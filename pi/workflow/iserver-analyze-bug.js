@@ -13,49 +13,49 @@ export const meta = {
 const issueKey   = args?.issueKey   || 'ISVJ-11876';
 const outputFile = args?.outputFile || `./${issueKey}-analysis.md`;
 
-log(`Analyzing issue: ${issueKey}`);
-log(`Output file: ${outputFile}`);
+log(`正在分析缺陷: ${issueKey}`);
+log(`输出文件: ${outputFile}`);
 
 // ══════════════════════════════════════════════════
-// Phase 1: Fetch Jira issue & extract keywords
+// Phase 1: 获取 Jira 问题详情并提取关键词
 // ══════════════════════════════════════════════════
 phase('获取 Jira 问题详情并提取关键词');
 
-const phase1Result = await agent(`You are a bug analysis assistant. Perform two tasks:
+const phase1Result = await agent(`你是一个缺陷分析助手，需要完成两项任务：
 
-## Task 1: Fetch the Jira issue using the supermap-jira skill
-First, find the skill by searching for "supermap-jira" SKILL.md
+## 任务 1：使用 supermap-jira 技能获取 Jira 问题
+首先搜索 "supermap-jira" 的 SKILL.md 找到该技能
 
-Read the SKILL.md to understand how to use it, then run the script to read the Jira issue:
+阅读 SKILL.md 了解使用方法，然后运行脚本读取 Jira 问题：
 ${issueKey}
 
-Output the COMPLETE raw output of the command. Note: the script now also outputs Jira comments — QA engineers often record reproduction results and additional scenarios in comments, so include them in the output.
+输出命令的完整原始输出。注意：脚本现在也会输出 Jira 评论——QA 工程师经常在评论中记录复现结果和补充场景，请一并包含在输出中。
 
-## Task 2: Extract search keywords
-After fetching the issue, analyze its content (title, description, steps to reproduce, error messages, environment) and extract 5-10 search keywords/phrases that would help find relevant documentation and similar bugs.
+## 任务 2：提取搜索关键词
+获取问题后，分析其内容（标题、描述、复现步骤、错误信息、环境），提取 5-10 个有助于找到相关文档和相似缺陷的搜索关键词/短语。
 
-Output your result in the following format (this is critical):
+请按以下格式输出结果（这很关键）：
 
 ### RAW_JIRA
-(complete raw Jira output here)
+（此处放完整的 Jira 原始输出）
 ### END_RAW_JIRA
 
 ### KEYWORDS
-- keyword 1 (description of what this keyword targets)
-- keyword 2 (description)
+- 关键词 1（该关键词针对什么的说明）
+- 关键词 2（说明）
 - ...
 ### END_KEYWORDS
 
 ### SUMMARY
-A 2-3 sentence summary of what this issue is about, in Chinese.
+用 2-3 句中文总结这个缺陷的内容。
 ### END_SUMMARY`, {
   label: 'fetch jira and extract keywords',
   tier: 'small'
 });
 
-log('Phase 1 result length: ' + (phase1Result || '').length);
+log('阶段 1 结果长度: ' + (phase1Result || '').length);
 
-// Parse structured output
+// 解析结构化输出
 function extractSection(text, startMarker, endMarker) {
   const startIdx = text.indexOf(startMarker);
   if (startIdx === -1) return '';
@@ -69,7 +69,7 @@ const jiraRaw       = extractSection(phase1Result, '### RAW_JIRA', '### END_RAW_
 const keywordsBlock = extractSection(phase1Result, '### KEYWORDS', '### END_KEYWORDS');
 const issueSummary  = extractSection(phase1Result, '### SUMMARY', '### END_SUMMARY');
 
-// Extract keyword phrases (lines starting with -)
+// 提取关键词短语（以 - 开头的行）
 const keywordLines = (keywordsBlock || '')
   .split('\n')
   .map(l => l.trim())
@@ -78,176 +78,176 @@ const keywordLines = (keywordsBlock || '')
 
 const topKeywords = keywordLines.slice(0, 6);
 
-log(`Issue summary: ${issueSummary}`);
-log(`Extracted ${topKeywords.length} keywords: ${topKeywords.join(', ')}`);
+log(`缺陷摘要: ${issueSummary}`);
+log(`提取到 ${topKeywords.length} 个关键词: ${topKeywords.join(', ')}`);
 
-// Fallback if parsing fails
-const jiraDetail = jiraRaw || phase1Result || '(No details available)';
+// 解析失败时的回退
+const jiraDetail = jiraRaw || phase1Result || '(无可用详情)';
 const kwList = topKeywords.length > 0 ? topKeywords : ['iServer'];
 const keywordsStr = kwList.join('\n');
-const summaryText = issueSummary || `Bug ${issueKey} analysis`;
+const summaryText = issueSummary || `缺陷 ${issueKey} 分析`;
 
 // ══════════════════════════════════════════════════
-// Phase 2: Parallel search — iServer docs, similar Jira, Confluence wiki
+// Phase 2: 并行搜索 — iServer 文档、相似 Jira、Confluence wiki
 // ══════════════════════════════════════════════════
 phase('并行搜索 iServer 文档、相似 Jira 和 Wiki 设计记录');
 
 const [wikiSearchResult, similarJiraResult, confluenceResult] = await parallel([
-  () => agent(`You are searching the SuperMap iServer Wiki knowledge base for documentation related to a bug.
+  () => agent(`你正在 SuperMap iServer Wiki 知识库中搜索与某个缺陷相关的文档。
 
-## Bug Summary
+## 缺陷摘要
 ${summaryText}
 
-## Bug Details
+## 缺陷详情
 ${jiraDetail}
 
-## Keywords to search
+## 待搜索关键词
 ${keywordsStr}
 
-## Instructions
-Use the "iserver-help" skill. Find the skill by searching for "iserver-help" SKILL.md
+## 操作说明
+使用 "iserver-help" 技能。通过搜索 "iserver-help" 的 SKILL.md 找到该技能
 
-Read the skill file to understand how to search the knowledge base, then:
+阅读技能文件了解如何搜索知识库，然后：
 
-1. Read the wiki index: head -200 wiki/index.md (relative to the iServer-Wiki directory)
-2. Search with each keyword using the wiki-search.py script
-3. If relevant pages are found, read them for more detail
+1. 阅读 wiki 索引: head -200 wiki/index.md（相对于 iServer-Wiki 目录）
+2. 使用 wiki-search.py 脚本逐个搜索每个关键词
+3. 如果找到相关页面，读取它们以获取更多细节
 
-## Report Structure
-- Which documents were found related to the issue's technical scenario?
-- Does iServer officially support the configuration/feature described in the issue?
-- Are there relevant configuration guides, troubleshooting pages, or known limitations?
-- Any documentation gaps identified?`, {
+## 报告结构
+- 找到了哪些与缺陷技术场景相关的文档？
+- iServer 是否官方支持缺陷中描述的配置/功能？
+- 是否有相关的配置指南、故障排查页面或已知限制？
+- 是否发现了文档缺口？`, {
     label: 'search iserver wiki',
     tier: 'medium'
   }),
-  () => agent(`You are searching SuperMap Jira for similar issues related to a bug.
+  () => agent(`你正在 SuperMap Jira 中搜索与某个缺陷相关的相似问题。
 
-## Bug Summary
+## 缺陷摘要
 ${summaryText}
 
-## Bug Details
+## 缺陷详情
 ${jiraDetail}
 
-## Keywords to search
+## 待搜索关键词
 ${keywordsStr}
 
-## Instructions
-Use the "supermap-jira" skill. Find it by searching for "supermap-jira" SKILL.md
+## 操作说明
+使用 "supermap-jira" 技能。通过搜索 "supermap-jira" 的 SKILL.md 找到该技能
 
-Read the SKILL.md to understand how to use it, then for each keyword search Jira.
+阅读 SKILL.md 了解使用方法，然后用每个关键词在 Jira 中搜索。
 
-Also search using:
-- Key error messages from the bug description
-- Feature/component names
-- Configuration terms (adapt to the actual issue)
+同时使用以下内容搜索：
+- 缺陷描述中的关键错误信息
+- 功能/组件名称
+- 配置相关术语（根据实际缺陷调整）
 
-## Report Structure
-For each search, show results. Note if "No issues found."
-Then analyze:
-1. Are there any similar/related bugs?
-2. Is this a known defect or a new issue?
-3. List all related Jira issues with relevance level (高/中/低)`, {
+## 报告结构
+每次搜索都展示结果。如果没有找到问题，请注明 "未找到问题"。
+然后分析：
+1. 是否存在相似/相关的缺陷？
+2. 这是已知缺陷还是新问题？
+3. 列出所有相关 Jira 问题及关联程度（高/中/低）`, {
     label: 'search similar jira',
     tier: 'medium'
   }),
-  () => agent(`You are searching SuperMap Confluence wiki for design documents, test records, and technical analysis related to a bug.
+  () => agent(`你正在 SuperMap Confluence wiki 中搜索与某个缺陷相关的设计文档、测试记录和技术分析。
 
-## Bug Summary
+## 缺陷摘要
 ${summaryText}
 
-## Bug Details
+## 缺陷详情
 ${jiraDetail}
 
-## Keywords to search
+## 待搜索关键词
 ${keywordsStr}
 
-## Instructions
-Use the "supermap-wiki" skill. Find it by searching for "supermap-wiki" SKILL.md
+## 操作说明
+使用 "supermap-wiki" 技能。通过搜索 "supermap-wiki" 的 SKILL.md 找到该技能
 
-Read the SKILL.md to understand how to use it, then for each keyword search Confluence wiki.
+阅读 SKILL.md 了解使用方法，然后用每个关键词在 Confluence wiki 中搜索。
 
-Also search with shorter/broader variants of the keywords.
+同时使用关键词的简短/更宽泛变体进行搜索。
 
-## Report Structure
-For each search, show results. Note if "No results found."
-Then analyze:
-1. Any design documents about the issue's feature/scenario?
-2. Any test records covering this scenario?
-3. Any technical analysis, known limitations, or architectural discussions?`, {
+## 报告结构
+每次搜索都展示结果。如果没有找到结果，请注明 "未找到结果"。
+然后分析：
+1. 是否有关于缺陷功能/场景的设计文档？
+2. 是否有覆盖该场景的测试记录？
+3. 是否有技术分析、已知限制或架构讨论？`, {
     label: 'search confluence wiki',
     tier: 'medium'
   })
 ]);
 
-log('Parallel search done. Wiki: ' + (wikiSearchResult || '').length + ', Jira: ' + (similarJiraResult || '').length + ', Confluence: ' + (confluenceResult || '').length);
+log('并行搜索完成。Wiki: ' + (wikiSearchResult || '').length + ', Jira: ' + (similarJiraResult || '').length + ', Confluence: ' + (confluenceResult || '').length);
 
 // ══════════════════════════════════════════════════
-// Phase 5: Synthesize conclusion
+// Phase 5: 综合分析并输出结论
 // ══════════════════════════════════════════════════
 phase('综合分析并输出结论');
 
-// Escape for embedding in an agent prompt (backtick template literal)
+// 转义，以便嵌入 agent 提示词（反引号模板字符串）
 function esc(s) {
   return (s || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 }
 
-const conclusion = await agent(`You are a senior technical analyst. Synthesize all evidence to determine if the bug is real.
+const conclusion = await agent(`你是一名资深技术分析师。请综合所有证据判断缺陷是否真实存在。
 
-## Bug Summary
+## 缺陷摘要
 ${esc(summaryText)}
 
-## Bug Details
+## 缺陷详情
 ${esc(jiraDetail)}
 
-## Investigation Results
+## 调查结果
 
-### iServer Documentation Search:
-${esc(wikiSearchResult) || 'No results from iServer wiki search.'}
+### iServer 文档搜索结果：
+${esc(wikiSearchResult) || 'iServer wiki 搜索无结果。'}
 
-### Similar Jira Issues:
-${esc(similarJiraResult) || 'No results from Jira search.'}
+### 相似 Jira 问题：
+${esc(similarJiraResult) || 'Jira 搜索无结果。'}
 
-### Confluence Wiki (Design docs, test records):
-${esc(confluenceResult) || 'No results from Confluence search.'}
+### Confluence Wiki（设计文档、测试记录）：
+${esc(confluenceResult) || 'Confluence 搜索无结果。'}
 
-## Required Output
-Produce a structured conclusion:
+## 输出要求
+输出结构化结论：
 
-### 1. Conclusion: Bug Validity
+### 1. 结论：缺陷有效性
 **属于** / **不属于** / **无法判断**
 
-### 2. iServer Help Docs Analysis
-- Does iServer officially support the described configuration/feature?
-- Is there documentation about the specific scenario?
-- Known requirements or limitations?
+### 2. iServer 帮助文档分析
+- iServer 是否官方支持描述中的配置/功能？
+- 是否有关于该具体场景的文档？
+- 已知的需求或限制？
 
-### 3. Similar Jira Issues
-- List related issues with keys and relevance
-- Known defect or new issue?
+### 3. 相似 Jira 问题
+- 列出相关问题及编号和关联程度
+- 已知缺陷还是新问题？
 
-### 4. Wiki Design Docs & Test Records
-- Design docs, test records, technical analysis found?
+### 4. Wiki 设计文档与测试记录
+- 是否找到设计文档、测试记录、技术分析？
 
-### 5. Final Analysis
-If bug: root cause explanation. If not bug: correct behavior. If unsure: what's needed.
+### 5. 最终分析
+如果是缺陷：解释根因。如果不是缺陷：说明正确行为。如果无法判断：说明还需要什么。
 
-Write in Chinese.`, {
+请用中文撰写。`, {
   label: 'synthesize conclusion',
   tier: 'big'
 });
 
-log('=== FINAL CONCLUSION ===');
-log(conclusion || 'No conclusion generated.');
+log('=== 最终结论 ===');
+log(conclusion || '未生成结论。');
 
 // ══════════════════════════════════════════════════
-// Phase 6: Write result to local file
+// Phase 6: 写入结果到本地文件
 // ══════════════════════════════════════════════════
 phase('写入分析结果到文件');
 
 const fileContent = `# ${issueKey} Bug 分析报告
 
-${conclusion || 'No conclusion generated.'}
+${conclusion || '未生成结论。'}
 `;
 
 const escapedContent = fileContent
@@ -255,11 +255,11 @@ const escapedContent = fileContent
   .replace(/`/g, '\\`')
   .replace(/\$/g, '\\$');
 
-const writeResult = await agent(`Write the following analysis result to a file.
+const writeResult = await agent(`将以下分析结果写入文件。
 
-Create the file at: ${outputFile}
+文件路径: ${outputFile}
 
-Use Node.js:
+使用 Node.js：
 
 node -e "
 const fs = require('fs');
@@ -268,12 +268,12 @@ fs.writeFileSync('${outputFile}', content, 'utf8');
 console.log('Written ' + content.length + ' bytes to ${outputFile}');
 "
 
-Then verify: ls -la ${outputFile}`, {
+然后验证: ls -la ${outputFile}`, {
   label: 'write result file',
   tier: 'small'
 });
 
-log('Write result: ' + (writeResult || ''));
+log('写入结果: ' + (writeResult || ''));
 
 return {
   ok: true,
