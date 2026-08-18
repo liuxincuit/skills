@@ -128,23 +128,24 @@ node scripts/read_wiki.js "<wiki URL 或 pageId>"
 
 ## 写入 Wiki 页面
 
-创建新页面或修改现有页面，可指定模板保持样式一致。
+创建新页面或修改现有页面。内容通过 **markdown 宏** 写入：markdown 原文直接存放到 Confluence 的 `markdown` 宏（`ac:plain-text-body` CDATA）中，由宏负责渲染，**不再手工转换为 Storage XHTML**，支持完整的 markdown 语法（标题、表格、列表、代码块、引用、链接、图片、行内格式等），避免转换格式出错。
 
 ### 功能特性
 
 1. **创建新页面**: 在指定空间创建新 wiki 页面
-2. **修改现有页面**: 更新已有页面的内容和标题
-3. **模板样式保持**: 可指定模板页面，自动将内容转换为模板的 storage 格式
+2. **修改现有页面**: 更新已有页面的内容（标题保持原样）
+3. **markdown 宏渲染**: markdown 原文放入 markdown 宏，渲染由宏完成，支持完整 markdown 语法
 4. **自动版本管理**: 更新页面时自动递增版本号
+5. **指定父页面**: 创建时可通过 `--parent` 指定父页面，将新页面挂在某页面下方
 
 ### 执行脚本
 
 ```bash
 # 创建新页面
-node scripts/write_wiki.js create --space <空间> --title <标题> --content <文件路径> [--template <pageId>]
+node scripts/write_wiki.js create --space <空间> --title <标题> --content <文件路径> [--parent <pageId>]
 
 # 更新现有页面
-node scripts/write_wiki.js update --pageId <pageId> --content <文件路径> [--template <pageId>]
+node scripts/write_wiki.js update --pageId <pageId> --content <文件路径>
 ```
 
 ### 参数说明
@@ -152,13 +153,27 @@ node scripts/write_wiki.js update --pageId <pageId> --content <文件路径> [--
 **create 命令:**
 - `--space`: 空间 key（如 PDC, ~liuxin1）
 - `--title`: 页面标题
-- `--content`: 内容文件路径（markdown 格式）
-- `--template`: （可选）模板页面 pageId
+- `--content`: 内容文件路径（markdown 格式，完整 markdown 语法均支持）
+- `--parent`: （可选）父页面 pageId，新页面将创建在该页面下方
 
 **update 命令:**
 - `--pageId`: 要更新的页面 ID
 - `--content`: 内容文件路径（markdown 格式）
-- `--template`: （可选）模板页面 pageId
+
+### 技术实现说明
+
+写入时生成如下 storage 格式（与 wiki 上已有 markdown 宏页面一致）：
+
+```xml
+<ac:structured-macro ac:name="markdown" ac:schema-version="1" ac:macro-id="{uuid}">
+  <ac:parameter ac:name="atlassian-macro-output-type">INLINE</ac:parameter>
+  <ac:plain-text-body><![CDATA[{markdown 原文}]]></ac:plain-text-body>
+</ac:structured-macro>
+```
+
+- markdown 原文原样放入 CDATA，由宏渲染，无需关注 Confluence storage 细节
+- 内容中的 `]]>` 序列会自动拆分转义（`]]]]><![CDATA[>`），渲染后还原为原文
+- `macro-id` 为自动生成的 UUID
 
 ### 输出格式
 
@@ -279,6 +294,7 @@ $env:SUPERMAP_WIKI_TOKEN='your-token-here'
 
 ### 写入特定错误
 - **空间不存在**: 创建时提示检查空间 key 是否正确
+- **父页面不存在 (404)**: 创建时提示检查 `--parent` pageId 是否正确
 - **参数错误**: 提示缺少必需参数
 
 ## 技术细节
@@ -286,6 +302,10 @@ $env:SUPERMAP_WIKI_TOKEN='your-token-here'
 - **API 端点**: `https://wiki.ispeco.com/rest/api/content`
 - **搜索 API**: `GET https://wiki.ispeco.com/rest/api/search`
 - **认证方式**: Bearer Token
-- **内容格式**: Confluence Storage XHTML
-- **依赖**: Node.js 内置模块（https、fs、path），无需安装额外依赖
+- **写入内容格式**: Confluence Storage XHTML 中的 markdown 宏（`ac:structured-macro ac:name="markdown"`），markdown 原文存放于 `ac:plain-text-body` CDATA，由宏渲染
+- **依赖**: Node.js 内置模块（https、fs、path、crypto），无需安装额外依赖
 - **跨平台**: 支持 Linux、macOS、Windows
+
+## 变更记录
+
+- **v1.x（markdown 宏改造）**: 写入改为 markdown 宏方式，移除 `--template` 参数与手写 Storage XHTML 转换逻辑（破坏性变更）；`create` 新增 `--parent` 参数支持指定父页面

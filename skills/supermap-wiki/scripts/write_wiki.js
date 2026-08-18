@@ -1,6 +1,6 @@
 const https = require('https');
 const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
 
 const WIKI_TOKEN = process.env.SUPERMAP_WIKI_TOKEN;
 const WIKI_HOST = 'wiki.ispeco.com';
@@ -18,8 +18,8 @@ function parseArgs() {
         space: null,
         title: null,
         pageId: null,
-        contentPath: null,
-        templateId: null
+        parentId: null,
+        contentPath: null
     };
 
     for (let i = 1; i < args.length; i += 2) {
@@ -28,8 +28,8 @@ function parseArgs() {
         if (key === '--space') result.space = value;
         else if (key === '--title') result.title = value;
         else if (key === '--pageId') result.pageId = value;
+        else if (key === '--parent') result.parentId = value;
         else if (key === '--content') result.contentPath = value;
-        else if (key === '--template') result.templateId = value;
     }
 
     return result;
@@ -67,7 +67,7 @@ function makeRequest(options, postData = null) {
 async function getPageInfo(pageId) {
     const options = {
         hostname: WIKI_HOST,
-        path: `/rest/api/content/${pageId}?expand=body.storage,version,space`,
+        path: `/rest/api/content/${pageId}?expand=version,space`,
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${WIKI_TOKEN}`,
@@ -77,254 +77,44 @@ async function getPageInfo(pageId) {
     return await makeRequest(options);
 }
 
-// 获取页面 storage 格式
-async function getPageStorage(pageId) {
-    const page = await getPageInfo(pageId);
-    return page.body?.storage?.value || '';
+// 将 markdown 内容包装为 Confluence markdown 宏 storage 格式
+// 格式参考: <ac:structured-macro ac:name="markdown" ...><ac:plain-text-body><![CDATA[原始 markdown]]></ac:plain-text-body></ac:structured-macro>
+// 这样 markdown 原文直接交给宏渲染,不再需要手工转换为 Storage XHTML
+function markdownToStorage(markdown) {
+    // CDATA 中不能包含 "]]>" 序列,遇到时拆分为 "]]]]><![CDATA[>" 保持原文
+    const safeContent = String(markdown).replace(/\]\]>/g, ']]]]><![CDATA[>');
+    // macro-id 为 UUID,由 Confluence 用于宏实例定位
+    const macroId = crypto.randomUUID();
+    return `<ac:structured-macro ac:name="markdown" ac:schema-version="1" ac:macro-id="${macroId}">` +
+        `<ac:parameter ac:name="atlassian-macro-output-type">INLINE</ac:parameter>` +
+        `<ac:plain-text-body><![CDATA[${safeContent}]]></ac:plain-text-body>` +
+        `</ac:structured-macro>`;
 }
 
-// 简单的 Markdown 到 Confluence Storage XHTML 转换
-function markdownToStorage(markdown, templateStructure = null) {
-    const useSpan = templateStructure?.hasSpanInStrong ?? false;
-    const brFormat = templateStructure?.brFormat === 'with-space' ? '<br />' : '<br/>';
-
-    // 转义 XML 特殊字符（但保留 markdown 标记）
-    const escapeXml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    const lines = markdown.split('\n');
-    const blocks = [];
-    let i = 0;
-
-    while (i < lines.length) {
-        const line = lines[i];
-        const trimmed = line.trim();
-
-        // 空行 - 生成 <p><br /></p>
-        if (!trimmed) {
-            blocks.push({ type: 'empty', content: '<p><br /></p>' });
-            i++;
-            continue;
-        }
-
-        // 标题
-        const headerMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
-        if (headerMatch) {
-            const level = headerMatch[1].length;
-            const text = escapeXml(headerMatch[2]);
-            if (useSpan) {
-                blocks.push({ type: 'header', content: `<h${level}><strong><span>${text}</span></strong></h${level}>` });
-            } else {
-                blocks.push({ type: 'header', content: `<h${level}><strong>${text}</strong></h${level}>` });
-            }
-            i++;
-            continue;
-        }
-
-        // 水平线
-        if (trimmed === '---') {
-            blocks.push({ type: 'hr', content: '<hr/>' });
-            i++;
-            continue;
-        }
-
-        // 表格
-        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-            const tableLines = [];
-            while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
-                tableLines.push(lines[i].trim());
-                i++;
-            }
-            blocks.push({ type: 'table', content: convertTable(tableLines, templateStructure) });
-            continue;
-        }
-
-        // 列表项
-        if (trimmed.startsWith('- ')) {
-            const listItems = [];
-            while (i < lines.length && lines[i].trim().startsWith('- ')) {
-                let itemText = escapeXml(lines[i].trim().substring(2));
-                // 处理行内格式（粗体不加span，因为列表项已包裹）
-                itemText = itemText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-                itemText = itemText.replace(/\*(.+?)\*/g, '<em>$1</em>');
-                itemText = itemText.replace(/`([^`]+)`/g, '<code>$1</code>');
-                if (useSpan) {
-                    listItems.push(`<li><span>${itemText}</span></li>`);
-                } else {
-                    listItems.push(`<li>${itemText}</li>`);
-                }
-                i++;
-            }
-            blocks.push({ type: 'list', content: `<ul>${listItems.join('')}</ul>` });
-            continue;
-        }
-
-        // 普通段落
-        let paraText = escapeXml(trimmed);
-        // 处理行内格式
-        paraText = paraText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        paraText = paraText.replace(/\*(.+?)\*/g, '<em>$1</em>');
-        paraText = paraText.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-        if (useSpan) {
-            blocks.push({ type: 'para', content: `<p><span>${paraText}</span></p>` });
-        } else {
-            blocks.push({ type: 'para', content: `<p>${paraText}</p>` });
-        }
-        i++;
+// 读取内容文件
+function readContentFile(contentPath) {
+    try {
+        return fs.readFileSync(contentPath, 'utf8');
+    } catch (e) {
+        console.error(`Error: Cannot read content file: ${contentPath}`);
+        console.error(e.message);
+        process.exit(1);
     }
-
-    // 组装最终 HTML，块之间用 <br /> 分隔
-    let html = '';
-    for (let j = 0; j < blocks.length; j++) {
-        html += blocks[j].content;
-        if (j < blocks.length - 1) {
-            html += brFormat;
-        }
-    }
-
-    return html;
-}
-
-// 转换表格
-function convertTable(lines, templateStructure = null) {
-    if (lines.length < 2) return lines.join('<br/>');
-
-    // 判断模板特征
-    const useSpan = templateStructure?.hasSpanInStrong ?? false;
-    const useParagraphInCell = templateStructure?.hasParagraphInTableCell ?? false;
-    const hasRelativeTable = templateStructure?.hasRelativeTable ?? false;
-    const hasColStyle = templateStructure?.hasColStyle ?? false;
-
-    // 过滤掉分隔符行 (|---|)
-    const contentLines = lines.filter(line => !line.match(/^\|[-:\s|]+\|$/));
-
-    // 计算列数
-    const colCount = contentLines[0].split('|').filter(c => c.trim()).length;
-
-    // 构建表格HTML
-    let tableClasses = 'wrapped';
-    if (hasRelativeTable) {
-        tableClasses += ' relative-table';
-    }
-
-    let tableHtml = `<table class="${tableClasses}">`;
-
-    // colgroup
-    if (hasColStyle) {
-        tableHtml += '<colgroup>';
-        const colWidth = Math.floor(100 / colCount);
-        for (let i = 0; i < colCount; i++) {
-            tableHtml += `<col style="width: ${colWidth}%;" />`;
-        }
-        tableHtml += '</colgroup>';
-    } else {
-        tableHtml += '<colgroup>';
-        for (let i = 0; i < colCount; i++) {
-            tableHtml += '<col />';
-        }
-        tableHtml += '</colgroup>';
-    }
-
-    tableHtml += '<tbody class="">';
-
-    for (const line of contentLines) {
-        const cells = line.split('|').filter(c => c.trim()).map(c => c.trim());
-        tableHtml += '<tr class="">';
-        for (const cell of cells) {
-            // 检查是否是表头（粗体）
-            const isHeader = cell.startsWith('**') && cell.endsWith('**');
-            const cleanCell = isHeader ? cell.slice(2, -2) : cell;
-
-            // 转义XML特殊字符
-            const escapedCell = cleanCell
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-
-            // 构建单元格内容
-            let cellContent;
-            if (useSpan) {
-                if (isHeader) {
-                    cellContent = `<strong><span>${escapedCell}</span></strong>`;
-                } else {
-                    cellContent = `<span>${escapedCell}</span>`;
-                }
-            } else {
-                cellContent = isHeader ? `<strong>${escapedCell}</strong>` : escapedCell;
-            }
-
-            // 根据模板特征决定是否用 <p> 包裹
-            if (useParagraphInCell) {
-                tableHtml += `<td><p>${cellContent}</p></td>`;
-            } else {
-                tableHtml += `<td>${cellContent}</td>`;
-            }
-        }
-        tableHtml += '</tr>';
-    }
-
-    tableHtml += '</tbody></table>';
-    return tableHtml;
-}
-
-// 从模板提取样式结构
-function extractTemplateStructure(templateStorage) {
-    if (!templateStorage) return null;
-
-    const structure = {
-        // 是否使用 <span> 包裹文本
-        hasSpanInStrong: templateStorage.includes('<strong><span>') || templateStorage.includes('<p><span>'),
-        // 表格单元格是否使用 <p> 包裹
-        hasParagraphInTableCell: templateStorage.includes('<td><p>'),
-        // 是否使用 relative-table
-        hasRelativeTable: templateStorage.includes('relative-table'),
-        // 换行符格式
-        brFormat: templateStorage.includes('<br />') ? 'with-space' : 'no-space',
-        // 是否使用 tbody class
-        hasTbodyClass: templateStorage.includes('<tbody class="">'),
-        // 是否使用 col style
-        hasColStyle: templateStorage.includes('<col style=')
-    };
-
-    return structure;
 }
 
 // 创建新页面
 async function createPage(args) {
     if (!args.space || !args.title || !args.contentPath) {
         console.error('Error: Missing required parameters for create command');
-        console.error('Usage: create --space <space> --title <title> --content <contentPath> [--template <pageId>]');
+        console.error('Usage: create --space <space> --title <title> --content <contentPath> [--parent <pageId>]');
         process.exit(1);
     }
 
-    // 读取内容
-    let content = '';
-    try {
-        content = fs.readFileSync(args.contentPath, 'utf8');
-    } catch (e) {
-        console.error(`Error: Cannot read content file: ${args.contentPath}`);
-        console.error(e.message);
-        process.exit(1);
-    }
+    const content = readContentFile(args.contentPath);
+    const storageContent = markdownToStorage(content);
 
-    // 如有模板，获取模板信息并分析结构
-    let templateStorage = '';
-    let templateStructure = null;
-    if (args.templateId) {
-        try {
-            templateStorage = await getPageStorage(args.templateId);
-            console.log(`Using template from page ${args.templateId}`);
-            templateStructure = extractTemplateStructure(templateStorage);
-        } catch (e) {
-            console.warn(`Warning: Could not fetch template ${args.templateId}, using default format`);
-        }
-    }
-
-    // 转换内容（使用模板结构）
-    const storageContent = markdownToStorage(content, templateStructure);
-
-    // 创建页面
-    const postData = JSON.stringify({
+    // 组装创建请求
+    const body = {
         type: 'page',
         title: args.title,
         space: {
@@ -336,7 +126,14 @@ async function createPage(args) {
                 representation: 'storage'
             }
         }
-    });
+    };
+
+    // 可选:在指定父页面下创建
+    if (args.parentId) {
+        body.ancestors = [{ id: args.parentId }];
+    }
+
+    const postData = JSON.stringify(body);
 
     const options = {
         hostname: WIKI_HOST,
@@ -363,7 +160,7 @@ async function createPage(args) {
         } else if (error.statusCode === 403) {
             console.error('Permission denied. You may not have access to create pages in this space.');
         } else if (error.statusCode === 404) {
-            console.error('Space not found. Please check the space key.');
+            console.error('Space or parent page not found. Please check the space key / --parent pageId.');
         } else {
             console.error(`HTTP ${error.statusCode}: ${error.data}`);
         }
@@ -375,19 +172,11 @@ async function createPage(args) {
 async function updatePage(args) {
     if (!args.pageId || !args.contentPath) {
         console.error('Error: Missing required parameters for update command');
-        console.error('Usage: update --pageId <pageId> --content <contentPath> [--template <pageId>]');
+        console.error('Usage: update --pageId <pageId> --content <contentPath>');
         process.exit(1);
     }
 
-    // 读取内容
-    let content = '';
-    try {
-        content = fs.readFileSync(args.contentPath, 'utf8');
-    } catch (e) {
-        console.error(`Error: Cannot read content file: ${args.contentPath}`);
-        console.error(e.message);
-        process.exit(1);
-    }
+    const content = readContentFile(args.contentPath);
 
     // 获取现有页面信息
     let pageInfo;
@@ -399,21 +188,7 @@ async function updatePage(args) {
         process.exit(1);
     }
 
-    // 如有模板，获取模板信息并分析结构
-    let templateStorage = '';
-    let templateStructure = null;
-    if (args.templateId) {
-        try {
-            templateStorage = await getPageStorage(args.templateId);
-            console.log(`Using template from page ${args.templateId}`);
-            templateStructure = extractTemplateStructure(templateStorage);
-        } catch (e) {
-            console.warn(`Warning: Could not fetch template ${args.templateId}, using default format`);
-        }
-    }
-
-    // 转换内容（使用模板结构）
-    const storageContent = markdownToStorage(content, templateStructure);
+    const storageContent = markdownToStorage(content);
 
     // 更新页面
     const nextVersion = pageInfo.version.number + 1;
@@ -475,8 +250,8 @@ async function main() {
 
     if (!args.command || (args.command !== 'create' && args.command !== 'update')) {
         console.error('Usage:');
-        console.error('  node write_wiki.js create --space <space> --title <title> --content <path> [--template <id>]');
-        console.error('  node write_wiki.js update --pageId <id> --content <path> [--template <id>]');
+        console.error('  node write_wiki.js create --space <space> --title <title> --content <path> [--parent <pageId>]');
+        console.error('  node write_wiki.js update --pageId <id> --content <path>');
         process.exit(1);
     }
 
