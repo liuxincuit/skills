@@ -54,7 +54,9 @@ function getTokenFromSettings(envVar) {
 function getCiEnvVariable(baseUrl) {
     const url = baseUrl.toLowerCase();
 
-    if (url.includes('cdci.ispeco.com:90')) {
+    // 注意：必须先匹配 cdci.* 域名。cdci.iserver.com:90 包含子串 "ci.iserver.com:90"，
+    // 若先判断 ci.iserver.com:90 会误选 SUPERMAP_CI_TOKEN（cdci 与 ci 是不同服务器）
+    if (url.includes('cdci.ispeco.com:90') || url.includes('cdci.iserver.com:90')) {
         return { envVar: 'SUPERMAP_CDCI_TOKEN', envName: 'SUPERMAP_CDCI_TOKEN (iSpeco CDCI)' };
     } else if (url.includes('ci.iserver.com:90') || url.includes('ci.ispeco.com:90')) {
         return { envVar: 'SUPERMAP_CI_TOKEN', envName: 'SUPERMAP_CI_TOKEN (iServer/iSpeco CI)' };

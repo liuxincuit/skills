@@ -6,7 +6,9 @@
  * and recursively parses referenced wiki pages.
  */
 
+const fs = require('fs');
 const https = require('https');
+const path = require('path');
 
 const WIKI_BASE_URL = 'wiki.ispeco.com';
 const API_BASE_URL = '/rest/api';
@@ -385,6 +387,67 @@ function formatComments(commentsData, repliesMap) {
     return { markdown, count };
 }
 
+// 下载 wiki 附件/图片到本地文件（与读取共用 token 与 TLS 放行配置）
+function downloadImage(url, destPath, token) {
+    return new Promise((resolve, reject) => {
+        const target = new URL(url);
+        const options = {
+            hostname: target.hostname,
+            path: target.pathname + target.search,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'image/*,*/*;q=0.8',
+                'User-Agent': 'Supermap-Wiki-Read/1.0'
+            },
+            timeout: 60000,
+            rejectUnauthorized: false
+        };
+
+        const req = https.request(options, (res) => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                const fileStream = fs.createWriteStream(destPath);
+                res.pipe(fileStream);
+                fileStream.on('finish', () => fileStream.close(() => resolve(destPath)));
+                fileStream.on('error', (err) => reject(new Error(`Write failed: ${err.message}`)));
+            } else if (res.statusCode === 401) {
+                reject(new Error('Authentication failed. Please check your SUPERMAP_WIKI_TOKEN.'));
+            } else if (res.statusCode === 403) {
+                reject(new Error('Access forbidden. You may not have permission to access this page.'));
+            } else if (res.statusCode === 404) {
+                reject(new Error('Not found (404).'));
+            } else {
+                res.resume();
+                reject(new Error(`HTTP ${res.statusCode}`));
+            }
+        });
+
+        req.on('error', (err) => reject(new Error(`Network error: ${err.message}`)));
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+        req.end();
+    });
+}
+
+// 文件名冲突时追加 -{pageId}（仍冲突则追加 -{pageId}-{n}）
+function uniqueImageName(filename, pageId, usedFilenames) {
+    const base = (name) => {
+        const dot = name.lastIndexOf('.');
+        return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+    };
+    let candidate = filename;
+    let n = 0;
+    while (usedFilenames.has(candidate)) {
+        n++;
+        const [stem, ext] = base(filename);
+        candidate = `${stem}-${pageId}${n > 1 ? '-' + n : ''}${ext}`;
+    }
+    usedFilenames.add(candidate);
+    return candidate;
+}
+
 async function readWikiPage(pageId, token, options = {}) {
     const {
         depth = 3,
@@ -392,7 +455,9 @@ async function readWikiPage(pageId, token, options = {}) {
         currentDepth = 0,
         visited = new Set(),
         includeComments = true,
-        includeImages = true
+        includeImages = true,
+        downloadDir = '',
+        usedFilenames = new Set()
     } = options;
 
     // Prevent infinite loops
@@ -458,7 +523,18 @@ async function readWikiPage(pageId, token, options = {}) {
             output.push('|---|--------|----------|');
             for (let i = 0; i < images.length; i++) {
                 const img = images[i];
-                output.push(`| ${i + 1} | ${img.filename} | [${img.filename}](${img.url}) |`);
+                if (downloadDir) {
+                    const localName = uniqueImageName(img.filename, pageId, usedFilenames);
+                    const destPath = path.join(downloadDir, localName);
+                    try {
+                        await downloadImage(img.url, destPath, token);
+                        output.push(`| ${i + 1} | ${img.filename} | [${img.filename}](${img.url}) 已下载到 ${destPath} |`);
+                    } catch (e) {
+                        output.push(`| ${i + 1} | ${img.filename} | [${img.filename}](${img.url}) 下载失败: ${e.message} |`);
+                    }
+                } else {
+                    output.push(`| ${i + 1} | ${img.filename} | [${img.filename}](${img.url}) |`);
+                }
             }
         }
     }
@@ -496,7 +572,9 @@ async function readWikiPage(pageId, token, options = {}) {
                             currentDepth: currentDepth + 1,
                             visited,
                             includeComments,
-                            includeImages
+                            includeImages,
+                            downloadDir,
+                            usedFilenames
                         });
                         if (linkedContent) {
                             output.push(linkedContent);
@@ -529,6 +607,8 @@ Options:
     --max-comment-depth <number>   Maximum recursion depth for comment replies (default: unlimited)
     --no-comments                   Do not fetch comments
     --no-images                     Do not extract images
+    --download-images               Download images to the current working directory
+    --download-dir <dir>            Download images to the specified directory (overrides --download-images)
     -h, --help                      Show this help message
 
 Examples:
@@ -536,6 +616,8 @@ Examples:
     node read_wiki.js "https://wiki.ispeco.com/pages/viewpage.action?pageId=12345"
     node read_wiki.js 12345 -d 2
     node read_wiki.js 12345 --no-comments
+    node read_wiki.js 12345 --download-images
+    node read_wiki.js 12345 --download-dir ./images
 
 Output:
     Complete page content in markdown format including images and comments.
@@ -549,6 +631,8 @@ function parseArgs(args) {
         maxCommentDepth: Infinity,
         includeComments: true,
         includeImages: true,
+        downloadImages: false,
+        downloadDir: '',
         help: false
     };
 
@@ -573,6 +657,13 @@ function parseArgs(args) {
             result.includeComments = false;
         } else if (arg === '--no-images') {
             result.includeImages = false;
+        } else if (arg === '--download-images') {
+            result.downloadImages = true;
+        } else if (arg === '--download-dir' && i + 1 < args.length && !args[i + 1].startsWith('-')) {
+            result.downloadDir = args[i + 1];
+            i++;
+        } else if (arg === '--download-dir') {
+            result.downloadDir = '.';
         } else if (!result.urlOrId) {
             result.urlOrId = arg;
         } else {
@@ -594,12 +685,25 @@ async function main() {
     const token = getToken();
     const pageId = parsePageId(args.urlOrId);
 
+    // 下载目录：--download-dir 优先；否则 --download-images 时用当前工作空间
+    const downloadDir = args.downloadDir || (args.downloadImages ? process.cwd() : '');
+    if (downloadDir) {
+        try {
+            fs.mkdirSync(path.resolve(downloadDir), { recursive: true });
+        } catch (e) {
+            console.error(`Error: Cannot create download directory ${downloadDir}: ${e.message}`);
+            process.exit(1);
+        }
+    }
+
     try {
         const content = await readWikiPage(pageId, token, {
             depth: args.depth,
             maxCommentDepth: args.maxCommentDepth,
             includeComments: args.includeComments,
-            includeImages: args.includeImages
+            includeImages: args.includeImages,
+            downloadDir,
+            usedFilenames: new Set()
         });
         console.log(content);
     } catch (error) {

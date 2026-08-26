@@ -32,9 +32,10 @@ Review the conversation context after completing a task and identify what should
 
 **保存位置:** 当前 AI Agent 的用户级配置文件。
 
+- **dsh（DeepSeek Harness）:** `$DSH_HOME/AGENTS.md`（默认 `~/.dsh/AGENTS.md`；DSH 用户全局**只认 AGENTS.md**，不认 CLAUDE.md）
 - **pi:** `~/.pi/agent/AGENTS.md`
 - **Claude Code:** `~/.claude/CLAUDE.md`
-- 如果你不确定当前使用哪个 Agent，检查 `$HOME` 下的 `.pi/` 或 `.claude/` 目录
+- 不确定当前使用哪个 Agent 时：检查 `$HOME` 下存在哪个目录——`.dsh/`（含 `sessions/`、`settings.yaml`）→ dsh；`.pi/` → pi；`.claude/` → Claude Code。dsh 的默认位置可被环境变量 `DSH_HOME` 覆盖
 
 在文件中追加到 `## 用户偏好（由 retrospective 管理）` 一节。如果该节不存在则创建。
 
@@ -65,7 +66,7 @@ Review the conversation context after completing a task and identify what should
 
 ### 全局约定
 
-**保存位置:** 与用户偏好同一个文件（`~/.pi/agent/AGENTS.md` 或对应 Agent 的配置文件），追加到 `## 全局约定（由 retrospective 管理）` 一节。
+**保存位置:** 与用户偏好同一个文件（`~/.dsh/AGENTS.md`、`~/.pi/agent/AGENTS.md` 或对应 Agent 的用户级配置文件），追加到 `## 全局约定（由 retrospective 管理）` 一节。
 
 **识别信号：**
 - 开发环境配置（操作系统、包管理器、路径风格）
@@ -132,6 +133,22 @@ Review the conversation context after completing a task and identify what should
 1. 向用户说明为什么这值得成为一个 skill
 2. **用户确认后才创建**
 3. 参照 `writing-skills` 的规范创建（SKILL.md 结构、TDD 流程）
+
+## 附录：各 Agent 指令文件加载机制（写错位置=白写）
+
+### dsh（DeepSeek Harness）
+
+- **用户全局（所有会话、所有项目）**：`$DSH_HOME/AGENTS.md`（默认 `~/.dsh/AGENTS.md`），**文件名固定为 AGENTS.md**
+- **项目级**：从项目根到会话 cwd 的**每一级目录**都检查候选文件 `AGENTS.md`、`CLAUDE.md`、`AGENTS.local.md`、`CLAUDE.local.md`（同目录多个候选按此顺序，内容去重后按优先级渲染）
+- **项目根判定**：从 cwd 向上找第一个包含 `.git` 的目录
+
+### pi
+
+- 用户级：`~/.pi/agent/AGENTS.md`
+
+### Claude Code
+
+- 用户级：`~/.claude/CLAUDE.md`
 
 ## 常见错误
 
