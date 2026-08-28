@@ -37,6 +37,11 @@ skill 分为两种类型
 └─skills             # 个人 skill
 ```
 
+## 项目约定（由 retrospective 管理）
+
+- pi 扩展必须放在 `pi/extensions/`（无点前缀），经 `package.json` 的 `pi.extensions` 声明加载（settings.json 的 `packages` 含本仓库）；`.pi/extensions/` 不是插件目录
+- `.pi/`（input-history 输入历史）与 `.claude/hooks/`（hooks 运行状态）是运行时数据，不提交到仓库
+
 ## 重要注意事项
 
 - 技能之间相互独立，技能之间不共享依赖
