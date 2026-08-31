@@ -41,6 +41,7 @@ skill 分为两种类型
 
 - pi 扩展必须放在 `pi/extensions/`（无点前缀），经 `package.json` 的 `pi.extensions` 声明加载（settings.json 的 `packages` 含本仓库）；`.pi/extensions/` 不是插件目录
 - `.pi/`（input-history 输入历史）与 `.claude/hooks/`（hooks 运行状态）是运行时数据，不提交到仓库
+- 仓库无 `node_modules`：验证 pi 扩展代码用临时目录安装 `@earendil-works/pi-coding-agent` 后 esbuild bundle（`--external:@earendil-works/*`）运行，import 扩展文件用绝对路径（详见 pi-extension-dev 技能）
 
 ## 重要注意事项
 
