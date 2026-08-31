@@ -24,3 +24,6 @@ Thumbs.db
 *.log
 
 .agents/skills
+
+# Pi input history (per-session, user-specific)
+.pi/input-history/
