@@ -1,6 +1,6 @@
 ---
 name: fable-writing
-description: 分析缺陷是否真是存在，传入 Jira url/Jira ID 或者要求分析缺陷时调用
+description: 围绕用户输入这个概念，写一则寓言来完整地解释它
 ---
 # 寓言写作 Prompt
 

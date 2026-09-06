@@ -7,14 +7,6 @@ description: |
   - 用户提供 Sonar URL 或项目 key 并询问质量门状态
   - 需要排查 Sonar 质量门失败原因
   - 需要分析代码质量指标（覆盖率、重复率、问题等）
-  - Pull Request 的 Sonar 检查未通过
-
-  The skill will:
-  1. 检查环境变量 SUPERMAP_SONAR_TOKEN
-  2. 解析 Sonar URL，提取项目 key 和 PR 号（如有）
-  3. 调用 Sonar API 查询质量门状态
-  4. 质量门通过：返回简洁成功信息（含覆盖率、重复率）
-  5. 质量门失败：获取具体失败指标、问题列表，分析并提供改进建议
 ---
 
 # SonarQube 质量门分析 Skill

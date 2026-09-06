@@ -8,20 +8,6 @@ description: |
   - 需要排查 CI/CD 流水线故障
   - 需要分析构建状态
   - 构建失败后需要快速定位问题
-
-  The skill will:
-  1. 解析 TeamCity URL 提取构建配置信息
-  2. 自动检测并尝试多种认证方式（Bearer Token、Basic Auth）
-  3. 调用 TeamCity REST API 获取最新构建状态
-  4. 构建成功：返回简洁成功信息
-  5. 构建失败：渐进式获取日志，使用 LLM 智能分析，提供临时和长期解决方案
-  6. 当日志无法获取时：基于 statusText 和问题信息进行降级分析
-
-  Requires: Node.js
-  环境变量:
-  - SUPERMAP_CDCI_TOKEN: 用于 cdci.ispeco.com:90
-  - SUPERMAP_CI_TOKEN: 用于 ci.iserver.com:90 或 ci.ispeco.com:90
-  Compatible with Windows, macOS, and Linux.
 ---
 
 # TeamCity 构建分析 Skill
