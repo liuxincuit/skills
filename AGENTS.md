@@ -5,6 +5,7 @@ AI Agent 技能与插件仓库（支持 pi 和 Claude Code）。内容以中文�
 ## Project Structure & Module Organization
 
 ```
+agents/               # agents 定义
 skills/               # 个人技能（手写维护）
 .agents/skills/       # 社区技能（npx skills 安装，已 gitignore）
 pi/extensions/        # pi 扩展（TypeScript 插件）

@@ -37,6 +37,7 @@ npx skills experimental_install -y
 ├─.agents
 │  └─skills              # 社区 skill（由 npx skills 安装）
 ├─.claude-plugin          # Claude Code 插件配置
+├─agents                  # 代理定义
 ├─hooks                   # Claude Code hooks 配置
 ├─pi
 │  └─extensions           # pi 插件扩展
@@ -44,7 +45,7 @@ npx skills experimental_install -y
 ├─skills                  # 个人 skill
 ├─skills-lock.json        # 社区 skill 锁文件
 ├─package.json            # pi 插件配置
-└─CLAUDE.md               # 仓库说明（项目指令）
+└─AGENTS.md               # 仓库说明（项目指令）
 ```
 
 skill 分为两种类型：
