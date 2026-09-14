@@ -35,7 +35,10 @@ Review the conversation context after completing a task and identify what should
 - **dsh（DeepSeek Harness）:** `$DSH_HOME/AGENTS.md`（默认 `~/.dsh/AGENTS.md`；DSH 用户全局**只认 AGENTS.md**，不认 CLAUDE.md）
 - **pi:** `~/.pi/agent/AGENTS.md`
 - **Claude Code:** `~/.claude/CLAUDE.md`
-- 不确定当前使用哪个 Agent 时：检查 `$HOME` 下存在哪个目录——`.dsh/`（含 `sessions/`、`settings.yaml`）→ dsh；`.pi/` → pi；`.claude/` → Claude Code。dsh 的默认位置可被环境变量 `DSH_HOME` 覆盖
+- 判定当前使用哪个 Agent：**优先从会话上下文判断**，不要主动探测 `$HOME`。系统提示里注入的规则文件路径（如 `<project_instructions path="/home/user/.pi/agent/AGENTS.md">`）已经给出了答案。
+  只有在上下文完全无线索时才回退到检查 `$HOME` 下的目录——`.dsh/`（含 `sessions/`、`settings.yaml`）→ dsh；`.pi/` → pi；`.claude/` → Claude Code（dsh 的默认位置可被环境变量 `DSH_HOME` 覆盖）。
+  探测被权限系统拦下时不要重试，也不要跨 Agent 目录猜测——用户会明确纠正。
+  （踩坑记录：2026-09-14，pi + pi-permission-system 环境下探测 `$HOME/.dsh`、`$HOME/.claude` 被拒，用户回复「你运行在 pi 里，不是 claude 和 dsh，不要管其他 agent」；而该会话的系统提示里早已写明 `~/.pi/agent/AGENTS.md`）
 
 在文件中追加到 `## 用户偏好（由 retrospective 管理）` 一节。如果该节不存在则创建。
 
