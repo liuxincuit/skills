@@ -21,7 +21,9 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 ## Build, Test, and Development Commands
 
 - `npx skills experimental_install -y` — 按 `skills-lock.json` 安装/恢复社区技能到 `.agents/skills`。
-- 仓库无 `node_modules`。验证 pi 扩展：在临时目录安装 `@earendil-works/pi-coding-agent`，用 esbuild 打包（`--external:@earendil-works/*`）后运行。详见 `skills/pi-extension-dev/`。
+- 仓库无 `node_modules`。验证 pi 扩展用 **pi 自带的 esbuild**，零安装：
+  `ESB="$(dirname "$(readlink -f "$(command -v pi)")")/../../node_modules/esbuild/bin/esbuild"`，再
+  `"$ESB" verify.ts --bundle --platform=node --format=esm --external:@earendil-works/* --external:typebox`。详见 `skills/pi-extension-dev/`。
 
 ## Coding Style & Naming Conventions
 
@@ -35,7 +37,9 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 
 ## Testing Guidelines
 
-- 仓库无自动化测试套件；质量保障靠验证与审查。
+- 扩展可以把纯逻辑拆到同目录的独立模块（如 `logic.ts`），配 `<name>.test.mts` 单测，零依赖直接跑：`node --test pi/extensions/<name>/*.test.mts`（Node ≥ 22 原生类型剥离 TS，`.mts` 后缀可避开 `MODULE_TYPELESS_PACKAGE_JSON` 警告）。
+- **不要**为消除这个警告给 `package.json` 加 `"type": "module"`——会影响 pi 用 jiti 加载扩展的方式。
+- 单测只覆盖纯逻辑（如 `SessionEntry[]` → 值的判定函数）；需要 pi 运行时的部分（对话框、切会话、消息注入）写进扩展 README 的「调试」节，靠 TUI 手动剧本验证。
 - 修改 pi 扩展后必须 esbuild 打包验证语法与加载；新增/修改技能后按技能内的验证步骤检查。
 - 技能名称更新时，同步检查 `pi/workflow` 中引用，避免工作流失配。
 
