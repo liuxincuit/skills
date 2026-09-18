@@ -6,6 +6,6 @@
     "pi": {
         "extensions": ["./pi/extensions"],
         "skills": ["./skills", "./.agents/skills"],
-        "prompts": ["./pi/promtps"]
+        "prompts": ["./pi/prompts"]
     }
 }
