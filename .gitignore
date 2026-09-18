@@ -25,5 +25,8 @@ Thumbs.db
 
 .agents/skills
 
+# 临时工作目录（一次性验证脚本与临时依赖）
+.tmp/
+
 # Pi input history (per-session, user-specific)
 .pi/input-history/
