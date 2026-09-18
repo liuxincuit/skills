@@ -1,6 +1,6 @@
 ---
 name: supermap-jira
-description: 搜索和读取 Supermap Jira 系统中的问题，支持标签管理与添加评论。支持按关键词或 JQL 搜索，读取单个 issue 的完整详情（含自定义缺陷字段、评论、附件），可以 JSON 格式输出供其他工具调用；可给 issue 添加/移除标签、列出系统全部标签、添加评论。
+description: 搜索和读取 Supermap Jira 系统中的问题，支持标签管理与添加评论。支持按关键词或 JQL 搜索，读取单个 issue 的完整详情（含自定义字段：缺陷重现步骤/详细信息、需求正文与验收标准、评论、附件），可以 JSON 格式输出供其他工具调用；可给 issue 添加/移除标签、列出系统全部标签、添加评论。
 ---
 
 # Supermap Jira 操作技能
@@ -84,6 +84,7 @@ node scripts/read_jira.js "https://jira.supermap.work/browse/ISVJ-11474"
 
 - `Jira URL` 或 `Issue Key`: Jira 问题标识
 - `--json`: 以 JSON 格式输出结构化数据（供其他工具调用）
+- `--field <字段ID>`: 只输出指定自定义字段的完整内容（如 `--field customfield_12405`）
 
 ### 输出信息
 
@@ -91,8 +92,40 @@ node scripts/read_jira.js "https://jira.supermap.work/browse/ISVJ-11474"
 - 报告人和负责人
 - 组件和版本
 - 描述
-- **缺陷详情**（自定义字段：重现步骤、详细描述、测试环境）
+- **正文型自定义字段**：缺陷详情（重现步骤、详细信息描述、测试环境）、需求内容（需求描述、需求场景、竞品规格、背景与价值、初始需求、产品规格）
+- **其他非空自定义字段清单**（只列名称与长度，不展开内容）
 - 附件列表（含**下载 URL**）
+
+### 自定义字段完整性
+
+Supermap Jira 把业务正文放在自定义字段里，**字段 ID 因项目（issue 库）而异**：
+
+| 字段 ID | 名称 | 适用 |
+| --- | --- | --- |
+| `customfield_10040` | 缺陷重现步骤 | 缺陷类（ISVJ 等） |
+| `customfield_10043` | 缺陷详细信息描述 | 缺陷类 |
+| `customfield_10042` | 测试软件环境 | 缺陷类 |
+| `customfield_10083` | 需求描述 | 需求类 |
+| `customfield_12400` | 需求场景 | 需求类（RML 等） |
+| `customfield_12402` | 同类竞品需求规格描述 | 需求类 |
+| `customfield_12403` | 需求背景与价值描述 | 需求类 |
+| `customfield_12404` | 初始需求描述 | 需求类 |
+| `customfield_12405` | 产品规格描述 | 需求类 |
+
+脚本用 `expand=names` 获取「字段 ID → 中文名」映射，**不做硬编码解析**：
+
+- 上表字段有值时完整展开
+- 其余非空字段在「其他非空自定义字段」里列名称与长度，**保证不被静默丢弃**
+- 需要看某个字段的原文时，用 `--field <字段ID>`
+
+**完整性自检（强制执行）**：`description` 为空**不等于**该 issue 没有正文。当 `description` 为空或明显短于标题的信息量时：
+
+1. 先确认输出里是否出现了「需求内容」/「缺陷详情」段
+2. 再看「其他非空自定义字段」清单里有没有疑似正文的项（如带“描述/规格/背景/验收”字样）
+3. 有疑问就用 `--field <字段ID>` 取原文，或 `--json` 取全部非空字段（含名称与完整内容）
+4. **禁止**在只看到标题+评论的情况下就断言“需求没说要 X”
+
+> 踩坑记录（2026-08-31，RML-1240）：旧版脚本只解析 3 个缺陷字段，而 RML-1240 的这 3 个字段全为空、`description` 也为空，导致需求正文（含“ArcGIS 字段名/别名切换设计”）完全丢失，得出错误结论并向用户道歉。
 
 ### 下载附件
 
@@ -111,10 +144,7 @@ node scripts/read_jira.js ISVJ-11102 --download --download-dir ./attachments
 
 `--json` 模式下 `attachments` 数组的 `content` 字段为附件下载 URL，可配合脚本进一步处理。
 
-**注意**：Supermap Jira 使用自定义字段存储缺陷详情：
-- `customfield_10040`: 缺陷重现步骤
-- `customfield_10043`: 缺陷详细信息描述
-- `customfield_10042`: 测试软件环境
+`--json` 的 `customFields` 包含**全部非空自定义字段**，形如 `{ "customfield_12405": { "name": "产品规格描述", "value": "..." } }`，无需再猜字段 ID。
 
 ---
 

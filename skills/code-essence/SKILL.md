@@ -1,6 +1,7 @@
 ---
 name: code-essence
 description: "Code essence analyzer - identifies the core abstraction of any codebase and explains everything else as layers built around it. Use this whenever the user asks about a codebase's nature, core architecture, design philosophy, or what this code is really about. Also use when asked to analyze, refactor, or modify unfamiliar code - the essence understanding will anchor all your subsequent work. Triggers on phrases like: the essence of, what is this code, core architecture, codebase nature, fundamental design, what is the core of, essence, core abstraction."
+disable-model-invocation: true
 ---
 
 # code-essence

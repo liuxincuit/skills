@@ -15,6 +15,27 @@ const path = require('path');
 const JIRA_BASE_URL = 'https://jira.supermap.work';
 const TOKEN_ENV_VAR = 'SUPERMAP_JIRA_TOKEN';
 
+// 正文型自定义字段分组。
+// Supermap 流程把业务正文放在自定义字段里，且字段 ID 因项目而异（缺陷类用 100xx、需求类用 124xx）。
+// 这里显式列出必须完整输出正文的字段；其余非空字段只列名称与长度，避免再次静默丢弃内容。
+const CONTENT_FIELD_GROUPS = [
+    {
+        title: '缺陷详情',
+        ids: ['customfield_10040', 'customfield_10043', 'customfield_10042']
+    },
+    {
+        title: '需求内容',
+        ids: [
+            'customfield_10083',
+            'customfield_12400',
+            'customfield_12402',
+            'customfield_12403',
+            'customfield_12404',
+            'customfield_12405'
+        ]
+    }
+];
+
 /**
  * 从输入解析 Issue Key
  * @param {string} input - Jira URL 或 Issue Key
@@ -57,7 +78,8 @@ function getToken() {
  */
 function fetchIssue(issueKey, token) {
     return new Promise((resolve, reject) => {
-        const apiUrl = `${JIRA_BASE_URL}/rest/api/2/issue/${issueKey}`;
+        // expand=names 让同一次响应带上「字段 ID -> 中文名」映射，用于识别自定义字段
+        const apiUrl = `${JIRA_BASE_URL}/rest/api/2/issue/${issueKey}?expand=names`;
         const parsedUrl = url.parse(apiUrl);
 
         const options = {
@@ -121,6 +143,38 @@ function formatDate(dateStr) {
     } catch (e) {
         return dateStr;
     }
+}
+
+/**
+ * 判断字段是否有值
+ * @param {*} value
+ * @returns {boolean}
+ */
+function hasValue(value) {
+    if (value === null || value === undefined || value === '') return false;
+    if (Array.isArray(value) && value.length === 0) return false;
+    return true;
+}
+
+/**
+ * 收集全部非空自定义字段
+ * @param {Object} fields - Jira fields 对象
+ * @param {Object} names - expand=names 返回的「字段 ID -> 中文名」映射
+ * @returns {Array<{id: string, name: string, value: string}>}
+ */
+function collectCustomFields(fields, names) {
+    const result = [];
+    for (const id of Object.keys(fields).sort()) {
+        if (!id.startsWith('customfield_')) continue;
+        const raw = fields[id];
+        if (!hasValue(raw)) continue;
+        result.push({
+            id,
+            name: (names && names[id]) || id,
+            value: typeof raw === 'object' ? JSON.stringify(raw) : String(raw)
+        });
+    }
+    return result;
 }
 
 /**
@@ -191,33 +245,35 @@ function formatOutput(issue) {
         console.log(fields.description);
     }
 
-    // 自定义字段 - 缺陷详情（Supermap Jira使用自定义字段存储）
-    const hasCustomFields = fields.customfield_10040 || fields.customfield_10043 || fields.customfield_10042;
+    // 自定义字段（Supermap Jira 用自定义字段承载业务正文，字段 ID 因项目而异）
+    const names = issue.names || {};
+    const customFields = collectCustomFields(fields, names);
+    const contentIds = new Set(CONTENT_FIELD_GROUPS.flatMap(group => group.ids));
+    const otherFields = customFields.filter(f => !contentIds.has(f.id));
 
-    if (!fields.description && hasCustomFields) {
+    if (!fields.description && customFields.length > 0) {
         console.log('\n📝 描述');
         console.log('-'.repeat(40));
-        console.log('(标准描述字段为空，详细信息见下方)');
+        console.log('(标准描述字段为空，正文见下方自定义字段)');
     }
 
-    if (hasCustomFields) {
-        console.log('\n📋 缺陷详情');
+    for (const group of CONTENT_FIELD_GROUPS) {
+        const items = customFields.filter(f => group.ids.includes(f.id));
+        if (items.length === 0) continue;
+        console.log(`\n📋 ${group.title}`);
         console.log('-'.repeat(40));
-
-        if (fields.customfield_10040) {
-            console.log('\n【重现步骤】');
-            console.log(safeDecodeURIComponent(fields.customfield_10040));
+        for (const item of items) {
+            console.log(`\n【${item.name}】(${item.id})`);
+            console.log(safeDecodeURIComponent(item.value));
         }
+    }
 
-        if (fields.customfield_10043) {
-            console.log('\n【详细描述】');
-            console.log(safeDecodeURIComponent(fields.customfield_10043));
-        }
-
-        if (fields.customfield_10042) {
-            console.log('\n【测试环境】');
-            console.log(fields.customfield_10042);
-        }
+    // 其余非空字段只列名称与长度，保证不被静默丢弃
+    if (otherFields.length > 0) {
+        console.log(`\n🗂️ 其他非空自定义字段（${otherFields.length} 个，未展开）`);
+        console.log('-'.repeat(40));
+        console.log('  ' + otherFields.map(f => `${f.name}(${f.value.length})`).join('  '));
+        console.log('\n  提示: 用 --field <字段ID> 查看指定字段的完整内容');
     }
 
     // 附件
@@ -340,6 +396,7 @@ async function main() {
         let downloadMode = false;
         let downloadPattern = null;
         let downloadDir = process.cwd();
+        let targetField = null;
 
         for (let i = 0; i < args.length; i++) {
             const a = args[i];
@@ -356,6 +413,11 @@ async function main() {
                     downloadDir = args[i + 1];
                     i++;
                 }
+            } else if (a === '--field') {
+                if (args[i + 1]) {
+                    targetField = args[i + 1];
+                    i++;
+                }
             } else if (input === null) {
                 input = a;
             }
@@ -369,6 +431,7 @@ async function main() {
             console.log('  node read_jira.js ISVJ-11474 --download');
             console.log('  node read_jira.js ISVJ-11474 --download "截图"');
             console.log('  node read_jira.js ISVJ-11474 --download --download-dir ./attachments');
+            console.log('  node read_jira.js RML-1240 --field customfield_12405');
             console.log('  node read_jira.js "http://jira.ispeco.com:8090/browse/ISVJ-11474"');
             process.exit(1);
         }
@@ -395,6 +458,21 @@ async function main() {
 
         // 调用 API
         const issue = await fetchIssue(issueKey, token);
+
+        // 单字段模式：输出指定自定义字段的完整内容
+        if (targetField) {
+            const names = issue.names || {};
+            const raw = (issue.fields || {})[targetField];
+            if (!hasValue(raw)) {
+                console.error(`❌ 字段 ${targetField} 不存在或为空。` +
+                    '可用字段 ID 见 read_jira.js 默认输出的「其他非空自定义字段」清单。');
+                process.exit(1);
+            }
+            console.log(`【${names[targetField] || targetField}】(${targetField})`);
+            console.log('-'.repeat(40));
+            console.log(typeof raw === 'object' ? JSON.stringify(raw, null, 2) : String(raw));
+            return;
+        }
 
         // 下载模式
         if (downloadMode) {
@@ -455,11 +533,9 @@ async function main() {
                 fixVersions: (fields.fixVersions || []).map(v => v.name),
                 affectedVersions: (fields.versions || []).map(v => v.name),
                 labels: fields.labels || [],
-                customFields: {
-                    customfield_10040: fields.customfield_10040 || '',
-                    customfield_10043: fields.customfield_10043 || '',
-                    customfield_10042: fields.customfield_10042 || ''
-                },
+                customFields: Object.fromEntries(
+                    collectCustomFields(fields, issue.names || {}).map(f => [f.id, { name: f.name, value: f.value }])
+                ),
                 attachments: (fields.attachment || []).map(a => ({
                     filename: a.filename,
                     size: a.size,
