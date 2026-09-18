@@ -8,7 +8,7 @@ AI Agent 技能与插件仓库（支持 pi 和 Claude Code）。内容以中文�
 agents/               # agents 定义
 skills/               # 个人技能（手写维护）
 .agents/skills/       # 社区技能（npx skills 安装，已 gitignore）
-pi/extensions/        # pi 扩展（TypeScript 插件）
+pi/extensions/        # pi 扩展，每个扩展一个子目录（index.ts 入口 + README.md）
 pi/prompts/           # pi 提示词模板
 pi/workflow/          # pi 工作流（依赖技能）
 .claude-plugin/       # Claude Code 插件配置
@@ -26,7 +26,10 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 ## Coding Style & Naming Conventions
 
 - pi 扩展必须放在 `pi/extensions/`（无点前缀），并经 `package.json` 的 `pi.extensions` 声明加载；`.pi/extensions/` 不是插件目录。
-- 扩展文件名用 kebab-case（如 `auto-prepend.ts`）；技能目录名用 kebab-case。
+- 扩展按目录组织：`pi/extensions/<kebab-case-name>/index.ts` 为唯一入口，同目录放该扩展的 `README.md`。
+- 入口文件必须是 `index.ts`：pi 只扫描 `pi/extensions/` 一层，子目录仅识别 `index.ts` / `index.js` / 带 `pi` 字段的 `package.json`。同目录的辅助模块、测试文件与 README 不会被当作扩展加载。
+- 扩展 README 按「做什么 / 配置 / 调试 / 陷阱」四节组织，配置项、命令、事件挂载点与已知坑写在这里，不在根 README 重复维护。
+- 技能目录名用 kebab-case。
 - 技能之间相互独立、不共享依赖；每个技能自带所需脚本。
 - 文档、注释、提交信息以中文为主；提交信息遵循 Conventional Commits。
 

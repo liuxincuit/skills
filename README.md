@@ -40,7 +40,7 @@ npx skills experimental_install -y
 ├─agents                  # 代理定义
 ├─hooks                   # Claude Code hooks 配置
 ├─pi
-│  └─extensions           # pi 插件扩展
+│  └─extensions           # pi 插件扩展（每个扩展一个子目录）
 ├─docs                    # 参考文档
 ├─skills                  # 个人 skill
 ├─skills-lock.json        # 社区 skill 锁文件
@@ -57,18 +57,21 @@ skill 分为两种类型：
 
 ### pi Extensions
 
-`pi/extensions/` 目录包含 pi 的扩展插件：
+`pi/extensions/` 下每个扩展占一个子目录，入口固定为 `index.ts`，配置项、命令、事件挂载点与已知坑见各自的 `README.md`：
 
-- `auto-prepend.ts` - 每 N 轮自动注入自定义消息（配置 `~/.pi/agent/auto-prepend.json`）
-- `bash-approver.ts` - 自动批准 pi-permission-system 的 bash 命令询问
-- `compact-tools.ts` - 内置工具紧凑 TUI 渲染；bash 默认 120s 超时（LLM 显式 timeout 优先）与 .env 环境注入
-- `fix-nul-redirect.ts` - bash 命令中 `> nul` 重定向替换为 `> /dev/null`（Git Bash 兼容）
-- `inject-model-name.ts` - 系统提示注入当前模型名称
-- `model-profiles.ts` - `/profile` 档案切换（按会话加载/卸载 settings 与 packages）
-- `notify-on-reply.ts` - Windows 收到回复时系统通知
-- `persistent-history.ts` - 跨 `/reload`、`/new` 和新会话保留输入历史
-- `rules-context.ts` - 路径规则注入（pi-rules 单文件精简版）
-- `subdir-context.ts` - 按 cwd 自动加载子目录 AGENTS/CLAUDE 上下文
+| 扩展 | 说明 |
+|---|---|
+| [`ask-user-question`](pi/extensions/ask-user-question/README.md) | 让模型把选择题交给用户，而不是自己猜 |
+| [`auto-prepend`](pi/extensions/auto-prepend/README.md) | 每 N 轮自动注入自定义消息 |
+| [`bash-approver`](pi/extensions/bash-approver/README.md) | 自动批准 pi-permission-system 的 bash 命令询问 |
+| [`compact-tools`](pi/extensions/compact-tools/README.md) | 内置工具紧凑 TUI 渲染；bash 默认 120s 超时与 .env 环境注入 |
+| [`fix-nul-redirect`](pi/extensions/fix-nul-redirect/README.md) | bash 命令中 `> nul` 重定向替换为 `> /dev/null` |
+| [`inject-model-name`](pi/extensions/inject-model-name/README.md) | 系统提示注入当前模型名称 |
+| [`model-profiles`](pi/extensions/model-profiles/README.md) | `/profile` 档案切换 |
+| [`notify-on-reply`](pi/extensions/notify-on-reply/README.md) | Windows 收到回复时系统通知 |
+| [`persistent-history`](pi/extensions/persistent-history/README.md) | 跨 `/reload`、`/new` 和新会话保留输入历史 |
+| [`rules-context`](pi/extensions/rules-context/README.md) | 路径规则注入（pi-rules 单文件精简版） |
+| [`subdir-context`](pi/extensions/subdir-context/README.md) | 按 cwd 自动加载子目录 AGENTS/CLAUDE 上下文 |
 
 ## 参考
 
