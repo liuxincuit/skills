@@ -68,6 +68,7 @@ skill 分为两种类型：
 | [`fix-nul-redirect`](pi/extensions/fix-nul-redirect/README.md) | bash 命令中 `> nul` 重定向替换为 `> /dev/null` |
 | [`inject-model-name`](pi/extensions/inject-model-name/README.md) | 系统提示注入当前模型名称 |
 | [`model-profiles`](pi/extensions/model-profiles/README.md) | `/profile` 档案切换 |
+| [`next-phase`](pi/extensions/next-phase/README.md) | 阶段完成后把下一步交接给同树新分支的干净上下文（默认禁用） |
 | [`notify-on-reply`](pi/extensions/notify-on-reply/README.md) | Windows 收到回复时系统通知 |
 | [`persistent-history`](pi/extensions/persistent-history/README.md) | 跨 `/reload`、`/new` 和新会话保留输入历史 |
 | [`rules-context`](pi/extensions/rules-context/README.md) | 路径规则注入（pi-rules 单文件精简版） |
