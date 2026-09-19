@@ -30,3 +30,7 @@ Thumbs.db
 
 # Pi input history (per-session, user-specific)
 .pi/input-history/
+
+# Pi 运行时数据：交接文档与一次性验证脚本
+.pi/handoffs/
+.pi/T/
