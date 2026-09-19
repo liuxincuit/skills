@@ -73,6 +73,7 @@ skill 分为两种类型：
 | [`persistent-history`](pi/extensions/persistent-history/README.md) | 跨 `/reload`、`/new` 和新会话保留输入历史 |
 | [`rules-context`](pi/extensions/rules-context/README.md) | 路径规则注入（pi-rules 单文件精简版） |
 | [`subdir-context`](pi/extensions/subdir-context/README.md) | 按 cwd 自动加载子目录 AGENTS/CLAUDE 上下文 |
+| [`tree-summaries`](pi/extensions/tree-summaries/README.md) | 方案文件自动变成 `/tree:<name>`，总结对话并回到会话树开头 |
 
 ## 参考
 
