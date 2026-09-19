@@ -31,6 +31,7 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 - 扩展按目录组织：`pi/extensions/<kebab-case-name>/index.ts` 为唯一入口，同目录放该扩展的 `README.md`。
 - 入口文件必须是 `index.ts`：pi 只扫描 `pi/extensions/` 一层，子目录仅识别 `index.ts` / `index.js` / 带 `pi` 字段的 `package.json`。同目录的辅助模块、测试文件与 README 不会被当作扩展加载。
 - 扩展 README 按「做什么 / 配置 / 调试 / 陷阱」四节组织，配置项、命令、事件挂载点与已知坑写在这里，不在根 README 重复维护。
+- 扩展的用户级数据目录用 `~/.pi/agent/extensions/<扩展名>/`，项目级用 `<cwd>/.pi/<扩展名>/`；不要占用 `~/.pi/agent/` 顶层，那是 pi 内置资源（prompts/skills/themes）的命名空间。数据目录里没有 `index.ts`，pi 扫到时跳过且不递归，不会被当成扩展加载。
 - 技能目录名用 kebab-case。
 - 技能之间相互独立、不共享依赖；每个技能自带所需脚本。
 - 文档、注释、提交信息以中文为主；提交信息遵循 Conventional Commits。
