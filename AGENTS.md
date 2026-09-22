@@ -22,8 +22,10 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 
 - `npx skills experimental_install -y` — 按 `skills-lock.json` 安装/恢复社区技能到 `.agents/skills`。
 - 仓库无 `node_modules`。验证 pi 扩展用 **pi 自带的 esbuild**，零安装：
-  `ESB="$(dirname "$(readlink -f "$(command -v pi)")")/../../node_modules/esbuild/bin/esbuild"`，再
+  `ESB="$(dirname "$(readlink -f "$(command -v pi)")")/node_modules/@earendil-works/pi-coding-agent/node_modules/.bin/esbuild"`，再
   `"$ESB" verify.ts --bundle --platform=node --format=esm --external:@earendil-works/* --external:typebox`。详见 `skills/pi-extension-dev/`。
+  该路径随 pi 的安装布局变化（0.87.0 起 esbuild 在 pi-coding-agent 包自己的 `node_modules` 下，不再是 npm 顶层）：
+  找不到时用 `find "$(dirname "$(readlink -f "$(command -v pi)")")" -name esbuild -type d` 定位。
 
 ## Coding Style & Naming Conventions
 
