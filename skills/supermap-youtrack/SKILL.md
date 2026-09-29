@@ -73,6 +73,50 @@ node scripts/read_task.js CS-5355
 - 描述内容
 - **父缺陷**（通过 trimmedIssues API 自动查找 Subtask INWARD 链接）
 - **备注列表**（含作者、时间、完整内容）
+- **附件列表**（文件名、大小、MIME 类型、上传者、上传时间；只给信息，不下文件）
+
+---
+
+## 下载附件
+
+把任务附件下载到本地。**默认只列出附件信息，不会自动下载**，必须显式加 `-d` / `--download`。
+
+### 触发条件
+
+- 需要看附件内容（日志、截图、压缩包），而不只是知道“有附件”
+- 任务描述提到“见附件”，但分析所需的数据只在附件里
+
+### 执行方式
+
+```bash
+# 只列出附件，不下载（read_task.js 默认行为）
+node scripts/read_task.js <issue-key>
+
+# 下载全部附件到默认目录 <当前工作目录>/.tmp/youtrack/<issue-key>/
+node scripts/read_task.js <issue-key> --download
+
+# 下载到指定目录（隐含 --download）
+node scripts/read_task.js <issue-key> -o <目录>
+```
+
+示例：
+
+```bash
+node scripts/read_task.js ICN-2690 --download
+node scripts/read_task.js ICN-2690 -o D:/logs/icn2690
+```
+
+### 输出信息
+
+每下载一个附件打印文件名与字节数，并与服务端声明的 size 比对，不一致时用 `!` 开头告警。
+
+### 注意事项
+
+- 只下载该任务自身的附件，**父缺陷的附件不会下载**
+- 文件名会做净化（只取最后一段路径、替换 Windows 非法字符），避免路径穿越
+- 同名文件直接覆盖（不重命名、不跳行）
+- 附件下载地址 `/api/files/{attachmentID}?sign=...` 的 `sign` 有时效（实测约 3 天），必须现取现用，不能存下地址以后再用
+- 单个附件下载失败（如 401/404）不会中断其它附件，但脚本退出码为 1
 
 ---
 
@@ -250,5 +294,6 @@ export YOUTRACK_URL="http://yt.ispeco.com:8099"
 - **地址**: `http://yt.ispeco.com:8099`
 - **API**: `GET /api/issues`（搜索）、`GET /api/issues/{key}?fields=tags(id,name)`（读取详情含标签）、`POST /api/issues/{key}/comments`（添加评论）、`GET /api/tags`（标签列表/搜索）、`POST /api/tags`（创建标签）、`POST /api/issues/{key}`（更新 issue 的 tags 字段）、`GET /api/issues/{key}/links?fields=...,trimmedIssues(...)`（查找父缺陷）、`GET /api/workitems`（工时）
 - **父缺陷查找方式**: 通过 `/api/issues/{key}/links` 接口，使用 `trimmedIssues` 字段获取关联 issue。当 `direction=INWARD` 且 `sourceToTarget` 包含 "parent for" 时，`trimmedIssues[0]` 即为父缺陷
+- **附件**: 列表用 `GET /api/issues/{key}?fields=...,attachments(id,name,size,mimeType,created,author(login),url)`（`url` 字段必须显式请求，不加就拿不到）；下载必须用 `attachments[].url` 指向的 `/api/files/{attachmentID}?sign=...&updated=...`。直接 GET `/api/issues/{key}/attachments/{id}` 只返回元数据 JSON（非文件），`/attachments/{id}/content` 返回 404
 - **认证方式**: Bearer Token
 - **跨平台**: 支持 Windows、macOS、Linux
