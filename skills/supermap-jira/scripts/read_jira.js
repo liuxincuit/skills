@@ -16,22 +16,25 @@ const JIRA_BASE_URL = 'https://jira.supermap.work';
 const TOKEN_ENV_VAR = 'SUPERMAP_JIRA_TOKEN';
 
 // 正文型自定义字段分组。
-// Supermap 流程把业务正文放在自定义字段里，且字段 ID 因项目而异（缺陷类用 100xx、需求类用 124xx）。
+// Supermap 流程把业务正文放在自定义字段里，且字段 ID 因项目而异（缺陷类用 100xx、需求类用 10083/124xx、需求池 DPL 用 127xx）。
 // 这里显式列出必须完整输出正文的字段；其余非空字段只列名称与长度，避免再次静默丢弃内容。
 const CONTENT_FIELD_GROUPS = [
     {
         title: '缺陷详情',
-        ids: ['customfield_10040', 'customfield_10043', 'customfield_10042']
+        ids: ['customfield_10040', 'customfield_10043', 'customfield_10042', 'customfield_10030']
     },
     {
         title: '需求内容',
         ids: [
             'customfield_10083',
+            'customfield_10085',
             'customfield_12400',
             'customfield_12402',
             'customfield_12403',
             'customfield_12404',
-            'customfield_12405'
+            'customfield_12405',
+            'customfield_12727',
+            'customfield_12728'
         ]
     }
 ];
@@ -97,6 +100,8 @@ function fetchIssue(issueKey, token) {
         const client = parsedUrl.protocol === 'https:' ? https : http;
 
         const req = client.request(options, (res) => {
+            // 必须显式设编码：否则分块切断多字节 UTF-8 字符会产生 U+FFFD 乱码
+            res.setEncoding('utf8');
             let data = '';
 
             res.on('data', (chunk) => {

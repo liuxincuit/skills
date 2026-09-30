@@ -53,6 +53,8 @@ function addComment(issueKey, body, token) {
                 rejectUnauthorized: false,
             },
             (res) => {
+                // 必须显式设编码：否则分块切断多字节 UTF-8 字符会产生 U+FFFD 乱码
+                res.setEncoding('utf8');
                 let data = '';
                 res.on('data', (chunk) => { data += chunk; });
                 res.on('end', () => {
