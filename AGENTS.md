@@ -21,11 +21,10 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 ## Build, Test, and Development Commands
 
 - `npx skills experimental_install -y` — 按 `skills-lock.json` 安装/恢复社区技能到 `.agents/skills`。
-- 仓库无 `node_modules`。验证 pi 扩展用 **pi 自带的 esbuild**，零安装：
-  `ESB="$(dirname "$(readlink -f "$(command -v pi)")")/node_modules/@earendil-works/pi-coding-agent/node_modules/.bin/esbuild"`，再
-  `"$ESB" verify.ts --bundle --platform=node --format=esm --external:@earendil-works/* --external:typebox`。详见 `skills/pi-extension-dev/`。
-  该路径随 pi 的安装布局变化（0.87.0 起 esbuild 在 pi-coding-agent 包自己的 `node_modules` 下，不再是 npm 顶层）：
-  找不到时用 `find "$(dirname "$(readlink -f "$(command -v pi)")")" -name esbuild -type d` 定位。
+- 仓库无 `node_modules`。验证 pi 扩展用 **pi 自己的 loader 批量加载**（零安装）：
+  `PI_ROOT="$(npm root -g)/@earendil-works/pi-coding-agent"`，`import(pathToFileURL("$PI_ROOT/dist/core/extensions/loader.js"))`
+  取 `loadExtensions(paths, process.cwd())`，判据是 `result.errors` 为空 **且** `extensions.length > 0`。详见 `skills/pi-extension-dev/`。
+  注意 **pi 1.3.0 起安装里已不再自带 esbuild**（只有 jiti），旧版的 `esbuild --bundle` 命令会 `MODULE_NOT_FOUND`。
 
 ## Coding Style & Naming Conventions
 
@@ -44,7 +43,7 @@ package.json          # pi 配置：extensions/skills/prompts 声明
 - 扩展可以把纯逻辑拆到同目录的独立模块（如 `logic.ts`），配 `<name>.test.mts` 单测，零依赖直接跑：`node --test <扩展目录>/<name>/*.test.mts`（Node ≥ 22 原生类型剥离 TS，`.mts` 后缀可避开 `MODULE_TYPELESS_PACKAGE_JSON` 警告）。
 - **不要**为消除这个警告给 `package.json` 加 `"type": "module"`——会影响 pi 用 jiti 加载扩展的方式。
 - 单测只覆盖纯逻辑（如 `SessionEntry[]` → 值的判定函数）；需要 pi 运行时的部分（对话框、切会话、消息注入）写进扩展 README 的「调试」节，靠 TUI 手动剧本验证。
-- 修改 pi 扩展后必须 esbuild 打包验证语法与加载；新增/修改技能后按技能内的验证步骤检查。
+- 修改 pi 扩展后必须用 pi 的 loader 验证加载（见上）；新增/修改技能后按技能内的验证步骤检查。
 - 技能名称更新时，同步检查 `pi/workflow` 中引用，避免工作流失配。
 
 ## Commit & Pull Request Guidelines
