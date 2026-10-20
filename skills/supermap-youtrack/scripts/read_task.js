@@ -367,7 +367,7 @@ Examples:
     node read_task.js CS-5412
     node read_task.js CS-5355
     node read_task.js ICN-2690 --download
-    node read_task.js ICN-2690 -o D:/logs/icn2690
+    node read_task.js ICN-2690 -o ./logs/icn2690
 
 Environment:
     SUPERMAP_YOUTRACK_TOKEN  - Required. Your YouTrack API token.

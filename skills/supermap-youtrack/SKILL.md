@@ -103,7 +103,7 @@ node scripts/read_task.js <issue-key> -o <目录>
 
 ```bash
 node scripts/read_task.js ICN-2690 --download
-node scripts/read_task.js ICN-2690 -o D:/logs/icn2690
+node scripts/read_task.js ICN-2690 -o ./logs/icn2690
 ```
 
 ### 输出信息

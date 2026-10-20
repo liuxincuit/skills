@@ -2,7 +2,7 @@
 
 AI Agent 技能与工作流仓库（支持 pi 和 Claude Code）。内容以中文编写，供开发者和 AI Agent 协作维护。
 
-pi 插件已拆分到独立仓库 `D:/code/pi-packages`（每个插件一个 npm 包），本仓库只维护技能与依赖技能的工作流。
+pi 插件已拆分到独立仓库 `pi-packages`（每个插件一个 npm 包），本仓库只维护技能与依赖技能的工作流。
 
 ## Project Structure & Module Organization
 
@@ -32,7 +32,7 @@ package.json          # pi 配置：只声明 skills
 
 ## pi 插件
 
-扩展代码、扩展开发约定（loader 验证、单测方式、包结构）与发布流程都在 `D:/code/pi-packages`，不在本仓库。需要修改 pi 扩展时去那个仓库。
+扩展代码、扩展开发约定（loader 验证、单测方式、包结构）与发布流程都在 `pi-packages` 仓库，不在本仓库。需要修改 pi 扩展时去那个仓库。
 
 ## Commit & Pull Request Guidelines
 

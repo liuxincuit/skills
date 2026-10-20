@@ -4,7 +4,7 @@ AI Agent 技能与工作流集合，用于个人开发工作流。
 
 支持 [pi](https://github.com/earendil-works/pi-coding-agent) 和 Claude Code 两种 Agent 环境。
 
-pi 插件已拆到独立仓库 `D:/code/pi-packages`，每个插件一个包。本仓库只保留技能与依赖技能的工作流。
+pi 插件已拆到独立仓库 `pi-packages`，每个插件一个包。本仓库只保留技能与依赖技能的工作流。
 
 ## 快速开始
 
@@ -25,7 +25,7 @@ npx skills experimental_install -y
 ```json
 {
   "packages": [
-    "D:/code/skills"
+    "<skills 仓库路径>"
   ]
 }
 ```
@@ -59,7 +59,7 @@ skill 分为两种类型：
 
 ## 相关仓库
 
-- `D:/code/pi-packages`：pi 插件集合，每个插件一个独立包
+- `pi-packages` 仓库：pi 插件集合，每个插件一个独立包
 
 ## 参考
 
