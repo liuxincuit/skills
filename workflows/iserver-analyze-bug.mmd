@@ -1,0 +1,8 @@
+flowchart TD
+    A[Agent: 获取 Jira 详情并提取关键词] --> B[Agent: 搜索 iServer Wiki 文档]
+    A --> C[Agent: 搜索相似 Jira 缺陷]
+    A --> D[Agent: 搜索 Confluence Wiki 设计记录]
+    B --> E[Agent: 综合分析并输出结论]
+    C --> E
+    D --> E
+    E --> F[Agent: 写入分析结果到文件]

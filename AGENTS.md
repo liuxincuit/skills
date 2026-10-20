@@ -1,6 +1,8 @@
 # Repository Guidelines
 
-AI Agent 技能与插件仓库（支持 pi 和 Claude Code）。内容以中文编写，供开发者和 AI Agent 协作维护。
+AI Agent 技能与工作流仓库（支持 pi 和 Claude Code）。内容以中文编写，供开发者和 AI Agent 协作维护。
+
+pi 插件已拆分到独立仓库 `D:/code/pi-packages`（每个插件一个 npm 包），本仓库只维护技能与依赖技能的工作流。
 
 ## Project Structure & Module Organization
 
@@ -8,47 +10,33 @@ AI Agent 技能与插件仓库（支持 pi 和 Claude Code）。内容以中文�
 agents/               # agents 定义
 skills/               # 个人技能（手写维护）
 .agents/skills/       # 社区技能（npx skills 安装，已 gitignore）
-pi/extensions/        # pi 扩展，每个扩展一个子目录（index.ts 入口 + README.md）
-pi/prompts/           # pi 提示词模板
-pi/workflow/          # pi 工作流（依赖技能）
+workflows/            # 依赖技能的工作流脚本
 .claude-plugin/       # Claude Code 插件配置
 hooks/                # Claude Code hooks
 docs/                 # 参考文档（plans/specs）
 skills-lock.json      # 社区技能锁文件
-package.json          # pi 配置：extensions/skills/prompts 声明
+package.json          # pi 配置：只声明 skills
 ```
 
 ## Build, Test, and Development Commands
 
 - `npx skills experimental_install -y` — 按 `skills-lock.json` 安装/恢复社区技能到 `.agents/skills`。
-- 仓库无 `node_modules`。验证 pi 扩展用 **pi 自己的 loader 批量加载**（零安装）：
-  `PI_ROOT="$(npm root -g)/@earendil-works/pi-coding-agent"`，`import(pathToFileURL("$PI_ROOT/dist/core/extensions/loader.js"))`
-  取 `loadExtensions(paths, process.cwd())`，判据是 `result.errors` 为空 **且** `extensions.length > 0`。详见 `skills/pi-extension-dev/`。
-  注意 **pi 1.3.0 起安装里已不再自带 esbuild**（只有 jiti），旧版的 `esbuild --bundle` 命令会 `MODULE_NOT_FOUND`。
+- 修改技能后按技能内的验证步骤检查；工作流脚本按脚本内的用法手动运行。
 
 ## Coding Style & Naming Conventions
 
-- pi 扩展默认放在 `pi/extensions/`（无点前缀），并经 `package.json` 的 `pi.extensions` 声明加载。
-- 注：pi 还会自动扫 `cwd/.pi/extensions/`（加载顺序第一位）与 `~/.pi/agent/extensions/`，而扩展事件是**顺序 await** 的——因此依赖「谁先注册谁在前」的 UI（如输入框上方 widget 的上下顺序）只有 `cwd/.pi/extensions/` 能保证。本仓库不用这条路：要在运行中显示信息，优先用输入框里的 working 行（`ctx.ui.setWorkingMessage`，自带 requestRender），见 `pi/extensions/costtime/`。
-- 扩展按目录组织：`<扩展目录>/<kebab-case-name>/index.ts` 为唯一入口，同目录放该扩展的 `README.md`。
-- 入口文件必须是 `index.ts`：pi 只扫描扩展目录一层，子目录仅识别 `index.ts` / `index.js` / 带 `pi` 字段的 `package.json`。同目录的辅助模块、测试文件与 README 不会被当作扩展加载。
-- 扩展 README 按「做什么 / 配置 / 调试 / 陷阱」四节组织，配置项、命令、事件挂载点与已知坑写在这里，不在根 README 重复维护。
-- 扩展的用户级数据目录用 `~/.pi/agent/extensions/<扩展名>/`，项目级用 `<cwd>/.pi/<扩展名>/`；不要占用 `~/.pi/agent/` 顶层，那是 pi 内置资源（prompts/skills/themes）的命名空间。数据目录里没有 `index.ts`，pi 扫到时跳过且不递归，不会被当成扩展加载。
 - 技能目录名用 kebab-case。
 - 技能之间相互独立、不共享依赖；每个技能自带所需脚本。
 - 文档、注释、提交信息以中文为主；提交信息遵循 Conventional Commits。
+- `workflows/` 下的脚本可以依赖 `skills/` 中的技能内容；修改技能名称时同步检查这里，避免工作流失配。
 
-## Testing Guidelines
+## pi 插件
 
-- 扩展可以把纯逻辑拆到同目录的独立模块（如 `logic.ts`），配 `<name>.test.mts` 单测，零依赖直接跑：`node --test <扩展目录>/<name>/*.test.mts`（Node ≥ 22 原生类型剥离 TS，`.mts` 后缀可避开 `MODULE_TYPELESS_PACKAGE_JSON` 警告）。
-- **不要**为消除这个警告给 `package.json` 加 `"type": "module"`——会影响 pi 用 jiti 加载扩展的方式。
-- 单测只覆盖纯逻辑（如 `SessionEntry[]` → 值的判定函数）；需要 pi 运行时的部分（对话框、切会话、消息注入）写进扩展 README 的「调试」节，靠 TUI 手动剧本验证。
-- 修改 pi 扩展后必须用 pi 的 loader 验证加载（见上）；新增/修改技能后按技能内的验证步骤检查。
-- 技能名称更新时，同步检查 `pi/workflow` 中引用，避免工作流失配。
+扩展代码、扩展开发约定（loader 验证、单测方式、包结构）与发布流程都在 `D:/code/pi-packages`，不在本仓库。需要修改 pi 扩展时去那个仓库。
 
 ## Commit & Pull Request Guidelines
 
-- 提交信息遵循 Conventional Commits，作用域标注变更区域，例如 `feat(extensions): ...`、`docs: ...`、`refactor(extensions): ...`。可用 `git-commit` 技能辅助生成。
+- 提交信息遵循 Conventional Commits，作用域标注变更区域，例如 `feat(skills): ...`、`docs: ...`、`refactor(workflows): ...`。可用 `git-commit` 技能辅助生成。
 - 只提交自己修改的代码；不要提交 `AGENTS.md`/`CLAUDE.md` 之外的无关文件。
 - 切勿提交 API Token、密钥或凭证。
 - `.pi/input-history/` 与 `.claude/hooks/` 是运行时数据，不提交（已在 `.gitignore`）。
