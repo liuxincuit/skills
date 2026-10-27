@@ -42,6 +42,81 @@ node scripts/search_youtrack.js "<搜索词>"
 
 ---
 
+## 创建任务
+
+在指定项目中创建 issue。
+
+### 执行方式
+
+```bash
+# 最小用法
+node scripts/create_issue.js --project ICN --summary "标题" --desc "描述"
+
+# 描述较长时用文件，避免命令行转义问题
+node scripts/create_issue.js --project ICN --summary "标题" --desc-file ./desc.md \
+  --field "优先级=普通" --field "状态=待解决" --field "Type=TechTask" --field "解决人=liuxin"
+
+# 只打印将要提交的 payload，不提交
+node scripts/create_issue.js --project ICN --summary "标题" --field "Type=TechTask" --dry-run
+```
+
+### 参数
+
+| 参数 | 说明 |
+| --- | --- |
+| `--project` | 项目短名（`shortName`，如 `ICN`），脚本自动解析为项目 id |
+| `--summary` | 标题（必填） |
+| `--desc` / `--desc-file` | 描述正文，支持 markdown；长文本用文件 |
+| `--field` | 「字段名=值名」，可重复；字段名和值名都取项目里显示的名字 |
+| `--dry-run` | 只打印 payload，不创建 |
+
+未通过 `--field` 指定的字段由 YouTrack 填项目默认值（注意：默认值可能不是你想要的，例如 ICN 的「缺陷类型」默认是「错误结果」）。
+
+### 输出
+
+创建成功打印 issue key、链接，以及各字段的实际取值，便于核对默认值。
+
+### 字段与可用值从哪里查
+
+```bash
+# 项目字段定义 + 枚举值（含 id）
+curl -s -H "Authorization: Bearer $SUPERMAP_YOUTRACK_TOKEN" \
+  "http://yt.ispeco.com:8099/api/admin/projects/0-5?fields=customFields(\$type,id,field(id,name),bundle(\$type,id,values(\$type,id,name)))"
+```
+
+脚本自己会解析字段名与值名，一般不需要手查；报错时它会列出可用字段/可用值。
+
+### 踩坑记录（2026-10-26，实测于 ICN 项目）
+
+`POST /api/issues` 的 `customFields` **必须用 projectCustomField 的 id 提交**，三种错误格式都会失败：
+
+| 提交格式 | 结果 |
+| --- | --- |
+| `{"$type":"CustomFieldValue","name":"优先级","value":{"name":"普通"}}` | 400 `Cannot interpret value as ...IssueCustomField` |
+| `{"$type":"IssueCustomField","name":"优先级","value":{"name":"普通"}}` | 400 同上 |
+| `{name:"优先级", value:{name:"普通"}}`（不带 `$type`） | 400 `$type is required` |
+| 带 `projectCustomField:{id}` 但 value 缺 id | 500 `Entity id is not provided` |
+
+可用格式（value 也必须带 id）：
+
+```json
+{
+  "$type": "SingleEnumIssueCustomField",
+  "id": "88-42",
+  "value": { "$type": "EnumBundleElement", "id": "65-35" }
+}
+```
+
+即：`id` 是字段自身的 id（如 `88-42`），不是字段名的 id（`53-2`），也不是 projectCustomField 嵌套对象。
+
+### 注意事项
+
+- 创建后不会自动写「创建人」，报告人由 token 对应账号决定
+- 删除 issue 用 `DELETE /api/issues/{内部 id}`，注意是内部 id（形如 `2-52227`）而不是 `ICN-2697`
+- 脚本支持 enum / state / user / version / period 五类字段，`OwnedProjectCustomField`（如 Subsystem）暂不支持
+
+---
+
 ## 读取任务详情
 
 读取单个 YouTrack 任务的完整详情，包括自定义字段、描述、备注，以及通过 `trimmedIssues` API 自动查找父缺陷（支持 Subtask 链接类型）。
@@ -103,7 +178,7 @@ node scripts/read_task.js <issue-key> -o <目录>
 
 ```bash
 node scripts/read_task.js ICN-2690 --download
-node scripts/read_task.js ICN-2690 -o ./logs/icn2690
+node scripts/read_task.js ICN-2690 -o D:/logs/icn2690
 ```
 
 ### 输出信息
@@ -292,7 +367,7 @@ export YOUTRACK_URL="http://yt.ispeco.com:8099"
 ### 技术细节
 
 - **地址**: `http://yt.ispeco.com:8099`
-- **API**: `GET /api/issues`（搜索）、`GET /api/issues/{key}?fields=tags(id,name)`（读取详情含标签）、`POST /api/issues/{key}/comments`（添加评论）、`GET /api/tags`（标签列表/搜索）、`POST /api/tags`（创建标签）、`POST /api/issues/{key}`（更新 issue 的 tags 字段）、`GET /api/issues/{key}/links?fields=...,trimmedIssues(...)`（查找父缺陷）、`GET /api/workitems`（工时）
+- **API**: `GET /api/issues`（搜索）、`POST /api/issues`（创建，见「创建任务」）、`GET /api/issues/{key}?fields=tags(id,name)`（读取详情含标签）、`POST /api/issues/{key}/comments`（添加评论）、`GET /api/tags`（标签列表/搜索）、`POST /api/tags`（创建标签）、`POST /api/issues/{key}`（更新 issue 字段，**不是 PATCH**）、`DELETE /api/issues/{id}`（删除，按内部 id）、`GET /api/issues/{key}/links?fields=...,trimmedIssues(...)`（查找父缺陷）、`GET /api/workitems`（工时）
 - **父缺陷查找方式**: 通过 `/api/issues/{key}/links` 接口，使用 `trimmedIssues` 字段获取关联 issue。当 `direction=INWARD` 且 `sourceToTarget` 包含 "parent for" 时，`trimmedIssues[0]` 即为父缺陷
 - **附件**: 列表用 `GET /api/issues/{key}?fields=...,attachments(id,name,size,mimeType,created,author(login),url)`（`url` 字段必须显式请求，不加就拿不到）；下载必须用 `attachments[].url` 指向的 `/api/files/{attachmentID}?sign=...&updated=...`。直接 GET `/api/issues/{key}/attachments/{id}` 只返回元数据 JSON（非文件），`/attachments/{id}/content` 返回 404
 - **认证方式**: Bearer Token
