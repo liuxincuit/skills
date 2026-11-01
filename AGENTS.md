@@ -25,7 +25,7 @@ package.json          # pi 配置：只声明 skills
 
 ## Coding Style & Naming Conventions
 
-- 技能目录名用 kebab-case。
+- 技能目录名用 kebab-case，技能内的文件与脚本同名规则（如 `references/false-positive-criteria.md`）。
 - 技能之间相互独立、不共享依赖；每个技能自带所需脚本。
 - 文档、注释、提交信息以中文为主；提交信息遵循 Conventional Commits。
 - `workflows/` 下的脚本可以依赖 `skills/` 中的技能内容；修改技能名称时同步检查这里，避免工作流失配。
